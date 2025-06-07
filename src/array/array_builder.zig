@@ -51,7 +51,7 @@ const BaseArrayBuilder = struct {
 
     fn appendScalar(self: *BaseArrayBuilder, s: Scalar) !void {
         if (s.isValid()) {
-            try self.append(s.toBytes());
+            try self.append(try s.toBytes(self.allocator));
         } else {
             try self.appendNull();
         }

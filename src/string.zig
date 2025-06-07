@@ -1,12 +1,14 @@
 const std = @import("std");
 
+pub const MAX_PREFIX_LEN = 12;
+
 const ShortString = packed struct {
     length: u32,
     data: u96,
 
     pub fn init(bytes: []const u8) ShortString {
         std.debug.assert(bytes.len <= MAX_PREFIX_LEN);
-        var data = [_]u8{0} ** 12;
+        var data = [_]u8{0} ** MAX_PREFIX_LEN;
         for (0..bytes.len) |i| {
             data[i] = bytes[i];
         }
@@ -29,8 +31,6 @@ const LongString = packed struct {
         return .{ .length = @intCast(bytes.len), .prefix = @bitCast(data), .buf_index = undefined, .buf_offset = undefined };
     }
 };
-
-pub const MAX_PREFIX_LEN = 12;
 
 pub const String = union(enum) {
     short: ShortString,

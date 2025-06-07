@@ -36,51 +36,61 @@ pub const Bitmap = struct {
 
 pub const BufferBuilder = struct {
     datatype: Datatype,
-    data: std.ArrayList(u8),
+    data: std.ArrayList([]const u8),
     allocator: std.mem.Allocator,
 
     pub fn init(datatype: Datatype, allocator: std.mem.Allocator) BufferBuilder {
-        const data = std.ArrayList(u8).init(allocator);
+        const data = std.ArrayList([]const u8).init(allocator);
         return .{ .datatype = datatype, .data = data, .allocator = allocator };
     }
 
+    fn nonDupeDeinit(self: BufferBuilder) void {
+        self.data.deinit();
+    }
+
     pub fn deinit(self: BufferBuilder) void {
+        for (self.data.items) |item| {
+            self.allocator.free(item);
+        }
         self.data.deinit();
     }
 
     pub fn appendNull(self: *BufferBuilder) !void {
-        const length = @max(self.datatype.bit_width() >> 3, 1);
-        for (0..length) |_| {
-            try self.data.append(0);
-        }
+        const slice = try self.allocator.alloc(u8, self.datatype.byte_width());
+        try self.data.append(slice);
     }
 
     pub fn append(self: *BufferBuilder, value: []const u8) !void {
-        try self.data.appendSlice(value);
+        try self.data.append(value);
     }
 
-    fn finishBool(self: *BufferBuilder) !Buffer {
+    fn finishBool(self: *BufferBuilder, buffer_length: usize) !Buffer {
         std.debug.assert(self.datatype == Datatype.Bool);
-        std.debug.assert(self.data.items.len % 8 == 0);
 
-        const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, self.data.items.len);
+        const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, buffer_length);
         @memset(buffer, 0);
         for (self.data.items, 0..) |item, i| {
-            buffer[i >> 3] |= item << @intCast(7 - (i % 8));
+            buffer[i >> 3] |= item[0] << @intCast(7 - (i % 8));
         }
         return Buffer{ .data = buffer, .allocator = self.allocator };
     }
 
     pub fn finish(self: *BufferBuilder) !Buffer {
-        while (self.data.items.len % 8 != 0) {
-            try self.data.append(0);
-        }
+        const builder_length = self.data.items[0].len * self.data.items.len;
+        const buffer_length = builder_length + 8 - (builder_length % 8);
 
         if (self.datatype == Datatype.Bool) {
-            return self.finishBool();
+            return self.finishBool(buffer_length);
         } else {
-            const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, self.data.items.len);
-            @memcpy(buffer, std.mem.sliceAsBytes(self.data.items));
+            const byte_width = self.datatype.byte_width();
+            const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, buffer_length);
+            @memset(buffer, 0);
+
+            var i: usize = 0;
+            for (self.data.items) |item| {
+                @memcpy(buffer[i .. i + byte_width], std.mem.sliceAsBytes(item));
+                i += byte_width;
+            }
             return Buffer{ .data = buffer, .allocator = self.allocator };
         }
     }
@@ -153,7 +163,7 @@ const test_allocator = std.testing.allocator;
 
 test "Int32 Buffer Builder" {
     var builder = BufferBuilder.init(Datatype.Int32, test_allocator);
-    defer builder.deinit();
+    defer builder.nonDupeDeinit();
     const one_slice = [_]u8{ 1, 0, 0, 0 };
     try builder.append(&one_slice);
     const two_slice = [_]u8{ 2, 0, 0, 0 };
@@ -169,7 +179,7 @@ test "Int32 Buffer Builder" {
 
 test "Bool Buffer Builder" {
     var builder = BufferBuilder.init(Datatype.Bool, test_allocator);
-    defer builder.deinit();
+    defer builder.nonDupeDeinit();
     const true_slice = [_]u8{1};
     try builder.append(&true_slice);
     const false_slice = [_]u8{0};
