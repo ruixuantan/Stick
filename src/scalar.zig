@@ -1,8 +1,9 @@
 const std = @import("std");
 const Datatype = @import("datatype.zig").Datatype;
+const String = @import("string.zig").String;
 
 fn BaseScalar(datatype: Datatype) type {
-    const T = datatype.ztype();
+    const T = datatype.scalartype();
 
     return struct {
         const Self = @This();
@@ -28,12 +29,14 @@ const BoolScalar = BaseScalar(Datatype.Bool);
 const Int8Scalar = BaseScalar(Datatype.Int8);
 const Int32Scalar = BaseScalar(Datatype.Int32);
 const Int64Scalar = BaseScalar(Datatype.Int64);
+const StringScalar = BaseScalar(Datatype.String);
 
 pub const Scalar = union(enum) {
     bool: BoolScalar,
     int8: Int8Scalar,
     int32: Int32Scalar,
     int64: Int64Scalar,
+    string: StringScalar,
 
     pub fn fromBool(value: bool) Scalar {
         return Scalar{ .bool = BoolScalar.init(value) };
@@ -99,12 +102,29 @@ pub const Scalar = union(enum) {
         }
     }
 
+    pub fn fromString(value: String) Scalar {
+        return Scalar{ .string = StringScalar.init(value) };
+    }
+
+    pub fn nullString() Scalar {
+        return Scalar{ .string = StringScalar.initNull() };
+    }
+
+    pub fn fromNullableString(value: ?[]const u8) Scalar {
+        if (value) |v| {
+            return Scalar.fromString(String.init(v));
+        } else {
+            return Scalar.nullString();
+        }
+    }
+
     pub inline fn parse(datatype: Datatype, raw: anytype) Scalar {
         return switch (datatype) {
             .Bool => Scalar.fromNullableBool(raw),
             .Int8 => Scalar.fromNullableInt8(raw),
             .Int32 => Scalar.fromNullableInt32(raw),
             .Int64 => Scalar.fromNullableInt64(raw),
+            .String => Scalar.fromNullableString(raw),
         };
     }
 

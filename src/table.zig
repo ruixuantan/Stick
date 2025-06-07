@@ -1,6 +1,7 @@
 const std = @import("std");
-const array = @import("array.zig");
-const Array = @import("array.zig").Array;
+const array = @import("array/array.zig");
+const Array = array.Array;
+const ArraySliceBuilder = @import("array/array_builder.zig").ArraySliceBuilder;
 const Datatype = @import("datatype.zig").Datatype;
 const Schema = @import("schema.zig").Schema;
 
@@ -41,14 +42,14 @@ pub const TableBuilder = struct {
 
     pub fn addColumn(self: *TableBuilder, col_name: []const u8, arr: Array) !void {
         if (self.arrays.items.len > 0) {
-            if (self.num_rows != arr.length) {
+            if (self.num_rows != arr.length()) {
                 return TableBuilderError.DifferingColumnLengths;
             }
         } else {
-            std.debug.assert(arr.length <= std.math.maxInt(i64));
-            self.num_rows = @intCast(arr.length);
+            std.debug.assert(arr.length() <= std.math.maxInt(i64));
+            self.num_rows = @intCast(arr.length());
         }
-        try self.schema.add(col_name, arr.datatype);
+        try self.schema.add(col_name, arr.datatype());
         try self.arrays.append(arr);
     }
 
@@ -79,15 +80,17 @@ const test_allocator = std.testing.allocator;
 test "Simple Table Builder" {
     const int_slice = [_]?i32{ 1, 2, null, 3, 4 };
     const bool_slice = [_]?bool{ true, null, false, false, null };
-    const int_array = try array.ArraySliceBuilder(Datatype.Int32).create(&int_slice, test_allocator);
-    const bool_array = try array.ArraySliceBuilder(Datatype.Bool).create(&bool_slice, test_allocator);
+    const str_slice = [_]?[]const u8{ "short", "long__godzilla", null, null, null };
+    const int_array = try ArraySliceBuilder(Datatype.Int32).create(&int_slice, test_allocator);
+    const bool_array = try ArraySliceBuilder(Datatype.Bool).create(&bool_slice, test_allocator);
+    const str_array = try ArraySliceBuilder(Datatype.String).create(&str_slice, test_allocator);
 
     var builder = TableBuilder.init(test_allocator);
     defer builder.deinit();
-    try builder.addColumns(&.{ "int32", "bool" }, &.{ int_array, bool_array });
+    try builder.addColumns(&.{ "int32", "bool", "string" }, &.{ int_array, bool_array, str_array });
 
     const table = try builder.finish();
     defer table.deinit();
     try std.testing.expectEqual(5, table.num_rows);
-    try std.testing.expectEqual(2, table.num_cols);
+    try std.testing.expectEqual(3, table.num_cols);
 }

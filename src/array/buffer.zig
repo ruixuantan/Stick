@@ -1,5 +1,5 @@
 const std = @import("std");
-const Datatype = @import("datatype.zig").Datatype;
+const Datatype = @import("../datatype.zig").Datatype;
 
 pub const ALIGNMENT = 64;
 
@@ -83,6 +83,34 @@ pub const BufferBuilder = struct {
             @memcpy(buffer, std.mem.sliceAsBytes(self.data.items));
             return Buffer{ .data = buffer, .allocator = self.allocator };
         }
+    }
+};
+
+pub const FixedBufferBuilder = struct {
+    const max_size = 32768;
+
+    data: []align(ALIGNMENT) u8,
+    size: usize,
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator) !FixedBufferBuilder {
+        const data = try allocator.alignedAlloc(u8, ALIGNMENT, max_size);
+        @memset(data, 0);
+        return .{ .data = data, .size = 0, .allocator = allocator };
+    }
+
+    pub fn cannotAccept(self: *FixedBufferBuilder, slice: []const u8) bool {
+        return self.size + slice.len >= max_size;
+    }
+
+    pub fn append(self: *FixedBufferBuilder, slice: []const u8) void {
+        std.debug.assert(self.size + slice.len < max_size);
+        @memcpy(self.data[self.size .. self.size + slice.len], slice);
+        self.size += slice.len;
+    }
+
+    pub fn finish(self: FixedBufferBuilder) !Buffer {
+        return Buffer{ .data = self.data, .allocator = self.allocator };
     }
 };
 
