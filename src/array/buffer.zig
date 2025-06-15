@@ -1,10 +1,9 @@
 const std = @import("std");
+const simd = @import("../simd.zig");
 const Datatype = @import("../datatype.zig").Datatype;
 
-pub const ALIGNMENT = 64;
-
 pub const Buffer = struct {
-    data: []align(ALIGNMENT) u8,
+    data: simd.AlignedBuffer,
     allocator: std.mem.Allocator,
 
     pub fn deinit(self: Buffer) void {
@@ -17,7 +16,7 @@ pub const Buffer = struct {
 };
 
 pub const Bitmap = struct {
-    data: []align(ALIGNMENT) u8,
+    data: simd.AlignedBuffer,
     allocator: std.mem.Allocator,
 
     pub fn deinit(self: Bitmap) void {
@@ -67,7 +66,7 @@ pub const BufferBuilder = struct {
     fn finishBool(self: *BufferBuilder, buffer_length: usize) !Buffer {
         std.debug.assert(self.datatype == Datatype.Bool);
 
-        const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, buffer_length);
+        const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
         @memset(buffer, 0);
         for (self.data.items, 0..) |item, i| {
             buffer[i >> 3] |= item[0] << @intCast(7 - (i % 8));
@@ -83,7 +82,7 @@ pub const BufferBuilder = struct {
             return self.finishBool(buffer_length);
         } else {
             const byte_width = self.datatype.byte_width();
-            const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, buffer_length);
+            const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
             @memset(buffer, 0);
 
             var i: usize = 0;
@@ -99,12 +98,12 @@ pub const BufferBuilder = struct {
 pub const FixedBufferBuilder = struct {
     const max_size = 32768;
 
-    data: []align(ALIGNMENT) u8,
+    data: simd.AlignedBuffer,
     size: usize,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !FixedBufferBuilder {
-        const data = try allocator.alignedAlloc(u8, ALIGNMENT, max_size);
+        const data = try allocator.alignedAlloc(u8, simd.ALIGNMENT, max_size);
         @memset(data, 0);
         return .{ .data = data, .size = 0, .allocator = allocator };
     }
@@ -150,7 +149,7 @@ pub const BitmapBuilder = struct {
             try self.data.append(0);
         }
 
-        const buffer = try self.allocator.alignedAlloc(u8, ALIGNMENT, self.data.items.len);
+        const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, self.data.items.len);
         @memset(buffer, 0);
         for (self.data.items, 0..) |item, i| {
             buffer[i >> 3] |= item << @intCast((i % 8));

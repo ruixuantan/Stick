@@ -24,6 +24,19 @@ pub const Datatype = enum {
         };
     }
 
+    pub fn toString(self: Datatype) []const u8 {
+        return switch (self) {
+            .Bool => "Bool",
+            .Int8 => "Int8",
+            .Int16 => "Int16",
+            .Int32 => "Int32",
+            .Int64 => "Int64",
+            .Float => "Float",
+            .Double => "Double",
+            .String => "String",
+        };
+    }
+
     pub fn byte_width(self: Datatype) usize {
         return @max(self.bit_width() >> 3, 1);
     }
@@ -60,4 +73,38 @@ pub const Datatype = enum {
             else => false,
         };
     }
+
+    pub fn inferDatatype(raw: []const u8) Datatype {
+        if (raw.len == 4) {
+            var output: [4]u8 = undefined;
+            _ = std.ascii.lowerString(&output, raw[0..4]);
+            if (std.mem.eql(u8, &output, "true")) {
+                return Datatype.Bool;
+            }
+        } else if (raw.len == 5) {
+            var output: [5]u8 = undefined;
+            _ = std.ascii.lowerString(&output, raw[0..5]);
+            if (std.mem.eql(u8, &output, "false")) {
+                return Datatype.Bool;
+            }
+        }
+
+        _ = std.fmt.parseInt(i32, raw, 10) catch {
+            _ = std.fmt.parseFloat(f32, raw) catch {
+                return Datatype.String;
+            };
+            return Datatype.Float;
+        };
+        return Datatype.Int32;
+    }
 };
+
+test "infer Datatype" {
+    try std.testing.expectEqual(Datatype.Bool, Datatype.inferDatatype("false"));
+    try std.testing.expectEqual(Datatype.Bool, Datatype.inferDatatype("true"));
+    try std.testing.expectEqual(Datatype.String, Datatype.inferDatatype("adlfj29ehqp234p7gh"));
+    try std.testing.expectEqual(Datatype.Float, Datatype.inferDatatype("213842.1823"));
+    try std.testing.expectEqual(Datatype.Float, Datatype.inferDatatype("-213842.1823"));
+    try std.testing.expectEqual(Datatype.Int32, Datatype.inferDatatype("2138421823"));
+    try std.testing.expectEqual(Datatype.Int32, Datatype.inferDatatype("-2138421823"));
+}

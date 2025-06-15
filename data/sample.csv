@@ -1,0 +1,6 @@
+id,name,is_active,score
+1,Alice,true,85.5
+2,"Bob, ""the"" 3rd","false",92.3
+3,Charlie,true,78.0
+4,Diana,false,88.8
+5,Ethan,true,91.2

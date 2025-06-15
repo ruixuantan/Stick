@@ -78,7 +78,14 @@ const PrimitiveArrayBuilder = struct {
     pub fn finish(self: *PrimitiveArrayBuilder) !array.Array {
         const finish_buffer = try self.base.buffer_builder.finish();
         const finish_bitmap = try self.base.bitmap_builder.finish();
-        return array.Array{ .primitive = array.PrimitiveArray{ .datatype = self.base.datatype, .length = self.base.length, .null_count = self.base.null_count, .buffer = finish_buffer, .bitmap = finish_bitmap, .allocator = self.base.allocator } };
+        return array.Array{ .primitive = array.PrimitiveArray{
+            .datatype = self.base.datatype,
+            .length = self.base.length,
+            .null_count = self.base.null_count,
+            .buffer = finish_buffer,
+            .bitmap = finish_bitmap,
+            .allocator = self.base.allocator,
+        } };
     }
 };
 
@@ -92,7 +99,12 @@ const BinaryViewArrayBuilder = struct {
         const base = BaseArrayBuilder.init(Datatype.String, allocator);
         const buffer_builder = try FixedBufferBuilder.init(allocator);
         const finished_buffers = std.ArrayList(buffer.Buffer).init(allocator);
-        return .{ .base = base, .curr_buffer_index = 0, .buffer_builder = buffer_builder, .finished_buffers = finished_buffers };
+        return .{
+            .base = base,
+            .curr_buffer_index = 0,
+            .buffer_builder = buffer_builder,
+            .finished_buffers = finished_buffers,
+        };
     }
 
     pub fn deinit(self: BinaryViewArrayBuilder) void {
@@ -127,7 +139,15 @@ const BinaryViewArrayBuilder = struct {
         const finish_buffer = try self.buffer_builder.finish();
         try self.finished_buffers.append(finish_buffer);
 
-        return array.Array{ .binary_view = array.BinaryViewArray{ .datatype = Datatype.String, .length = self.base.length, .null_count = self.base.null_count, .views_buffer = finish_view_buffer, .buffers = try self.finished_buffers.toOwnedSlice(), .bitmap = finish_bitmap, .allocator = self.base.allocator } };
+        return array.Array{ .binary_view = array.BinaryViewArray{
+            .datatype = Datatype.String,
+            .length = self.base.length,
+            .null_count = self.base.null_count,
+            .views_buffer = finish_view_buffer,
+            .buffers = try self.finished_buffers.toOwnedSlice(),
+            .bitmap = finish_bitmap,
+            .allocator = self.base.allocator,
+        } };
     }
 };
 
@@ -135,10 +155,10 @@ pub const ArrayBuilder = union(enum) {
     primitive: PrimitiveArrayBuilder,
     binary_view: BinaryViewArrayBuilder,
 
-    pub fn init(datatype: Datatype, allocator: std.mem.Allocator) !ArrayBuilder {
-        return switch (datatype) {
+    pub fn init(dt: Datatype, allocator: std.mem.Allocator) !ArrayBuilder {
+        return switch (dt) {
             .String => ArrayBuilder{ .binary_view = try BinaryViewArrayBuilder.init(allocator) },
-            else => ArrayBuilder{ .primitive = PrimitiveArrayBuilder.init(datatype, allocator) },
+            else => ArrayBuilder{ .primitive = PrimitiveArrayBuilder.init(dt, allocator) },
         };
     }
 
@@ -164,6 +184,13 @@ pub const ArrayBuilder = union(enum) {
             },
         };
     }
+
+    pub fn datatype(self: ArrayBuilder) Datatype {
+        return switch (self) {
+            .primitive => |p| p.base.datatype,
+            .binary_view => Datatype.String,
+        };
+    }
 };
 
 pub fn ArraySliceBuilder(datatype: Datatype) type {
@@ -177,7 +204,14 @@ pub fn ArraySliceBuilder(datatype: Datatype) type {
             defer builder.deinit();
 
             for (slice) |item| {
-                var s = Scalar.parse(datatype, item);
+                var s: Scalar = undefined;
+                if (datatype == Datatype.String) {
+                    const raw = if (item == null) null else string.String.init(item.?);
+                    s = Scalar.parse(datatype, raw);
+                } else {
+                    s = Scalar.parse(datatype, item);
+                }
+
                 if (datatype == Datatype.String and s.isValid() and s.string.value.isLong()) {
                     s = try builder.binary_view.updateLongScalar(s, item.?);
                 }

@@ -164,9 +164,9 @@ pub const Scalar = union(enum) {
         return Scalar{ .string = StringScalar.initNull() };
     }
 
-    pub fn fromNullableString(value: ?[]const u8) Scalar {
+    pub fn fromNullableString(value: ?String) Scalar {
         if (value) |v| {
-            return Scalar.fromString(String.init(v));
+            return Scalar.fromString(v);
         } else {
             return Scalar.nullString();
         }

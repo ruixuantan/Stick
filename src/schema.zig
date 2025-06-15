@@ -7,13 +7,17 @@ pub const Schema = struct {
     const SchemaError = error{SchemaFieldAlreadyExists};
 
     fields: std.ArrayList(Field),
+    allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Schema {
         const fields = std.ArrayList(Field).init(allocator);
-        return .{ .fields = fields };
+        return .{ .fields = fields, .allocator = allocator };
     }
 
     pub fn deinit(self: Schema) void {
+        for (self.fields.items) |field| {
+            self.allocator.free(field.name);
+        }
         self.fields.deinit();
     }
 
@@ -30,7 +34,7 @@ pub const Schema = struct {
         if (self.contains_duplicates(name)) {
             return SchemaError.SchemaFieldAlreadyExists;
         }
-        const field = Field{ .name = name, .datatype = datatype };
+        const field = Field{ .name = try self.allocator.dupe(u8, name), .datatype = datatype };
         try self.fields.append(field);
     }
 };
