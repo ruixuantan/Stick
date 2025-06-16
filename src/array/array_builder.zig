@@ -71,7 +71,8 @@ const PrimitiveArrayBuilder = struct {
         self.base.deinit();
     }
 
-    pub fn appendScalar(self: *PrimitiveArrayBuilder, s: Scalar) !void {
+    pub fn appendScalar(self: *PrimitiveArrayBuilder, s: Scalar, raw: []const u8) !void {
+        _ = raw;
         try self.base.appendScalar(s);
     }
 
@@ -112,7 +113,7 @@ const BinaryViewArrayBuilder = struct {
         self.finished_buffers.deinit();
     }
 
-    pub fn updateLongScalar(self: *BinaryViewArrayBuilder, s: Scalar, str: []const u8) !Scalar {
+    fn updateLongScalar(self: *BinaryViewArrayBuilder, s: Scalar, str: []const u8) !Scalar {
         std.debug.assert(s.string.value.isLong());
 
         var updated = s;
@@ -128,9 +129,14 @@ const BinaryViewArrayBuilder = struct {
         return updated;
     }
 
-    pub fn appendScalar(self: *BinaryViewArrayBuilder, s: Scalar) !void {
+    pub fn appendScalar(self: *BinaryViewArrayBuilder, s: Scalar, raw: []const u8) !void {
         // Scalar shoud have buffer index and offset set
-        try self.base.appendScalar(s);
+        if (s.isValid() and s.string.value.isLong()) {
+            const updated = try self.updateLongScalar(s, raw);
+            try self.base.appendScalar(updated);
+        } else {
+            try self.base.appendScalar(s);
+        }
     }
 
     pub fn finish(self: *BinaryViewArrayBuilder) !array.Array {
@@ -168,9 +174,9 @@ pub const ArrayBuilder = union(enum) {
         }
     }
 
-    pub fn appendScalar(self: *ArrayBuilder, s: Scalar) !void {
+    pub fn appendScalar(self: *ArrayBuilder, s: Scalar, raw: []const u8) !void {
         switch (self.*) {
-            inline else => |*b| try b.appendScalar(s),
+            inline else => |*b| try b.appendScalar(s, raw),
         }
     }
 
@@ -208,14 +214,15 @@ pub fn ArraySliceBuilder(datatype: Datatype) type {
                 if (datatype == Datatype.String) {
                     const raw = if (item == null) null else string.String.init(item.?);
                     s = Scalar.parse(datatype, raw);
+                    if (item != null) {
+                        try builder.appendScalar(s, item.?);
+                    } else {
+                        try builder.appendScalar(s, "");
+                    }
                 } else {
                     s = Scalar.parse(datatype, item);
+                    try builder.appendScalar(s, "");
                 }
-
-                if (datatype == Datatype.String and s.isValid() and s.string.value.isLong()) {
-                    s = try builder.binary_view.updateLongScalar(s, item.?);
-                }
-                try builder.appendScalar(s);
             }
             return try builder.finish();
         }
@@ -228,10 +235,10 @@ test "Int32 Array Builder" {
     var builder = try ArrayBuilder.init(Datatype.Int32, test_allocator);
     defer builder.deinit();
 
-    try builder.appendScalar(Scalar.fromInt32(1));
-    try builder.appendScalar(Scalar.fromInt32(2));
-    try builder.appendScalar(Scalar.nullInt32());
-    try builder.appendScalar(Scalar.fromInt32(3));
+    try builder.appendScalar(Scalar.fromInt32(1), "");
+    try builder.appendScalar(Scalar.fromInt32(2), "");
+    try builder.appendScalar(Scalar.nullInt32(), "");
+    try builder.appendScalar(Scalar.fromInt32(3), "");
 
     const arr = try builder.finish();
     defer arr.deinit();
@@ -248,9 +255,9 @@ test "Bool Array Builder" {
     var builder = try ArrayBuilder.init(Datatype.Bool, test_allocator);
     defer builder.deinit();
 
-    try builder.appendScalar(Scalar.fromBool(true));
-    try builder.appendScalar(Scalar.fromBool(false));
-    try builder.appendScalar(Scalar.nullBool());
+    try builder.appendScalar(Scalar.fromBool(true), "");
+    try builder.appendScalar(Scalar.fromBool(false), "");
+    try builder.appendScalar(Scalar.nullBool(), "");
 
     const arr = try builder.finish();
     defer arr.deinit();
@@ -266,18 +273,18 @@ test "String Array Builder" {
     var builder = try ArrayBuilder.init(Datatype.String, test_allocator);
     defer builder.deinit();
 
-    try builder.appendScalar(Scalar.nullString());
-    try builder.appendScalar(Scalar.fromString(string.String.init("small")));
+    try builder.appendScalar(Scalar.nullString(), "");
+    try builder.appendScalar(Scalar.fromString(string.String.init("small")), "");
 
     const long_str = "long__godzilla";
     var long_scalar = Scalar.fromString(string.String.init(long_str));
     long_scalar = try builder.binary_view.updateLongScalar(long_scalar, long_str);
-    try builder.appendScalar(long_scalar);
+    try builder.appendScalar(long_scalar, "");
 
     const long_str2 = "long__godzilla2";
     var long_scalar2 = Scalar.fromString(string.String.init(long_str2));
     long_scalar2 = try builder.binary_view.updateLongScalar(long_scalar2, long_str2);
-    try builder.appendScalar(long_scalar2);
+    try builder.appendScalar(long_scalar2, "");
 
     const gigantic_str = [_]u8{32} ** 32767;
     var gigantic_scalar = Scalar.fromString(string.String.init(&gigantic_str));

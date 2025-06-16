@@ -5,7 +5,7 @@ comptime {
     _ = @import("array/buffer.zig");
     _ = @import("array/array.zig");
     _ = @import("array/array_builder.zig");
-    _ = @import("table.zig");
+    _ = @import("record_batch.zig");
 
     _ = @import("csv/csv.zig");
 }

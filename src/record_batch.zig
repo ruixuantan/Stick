@@ -5,15 +5,14 @@ const ArraySliceBuilder = @import("array/array_builder.zig").ArraySliceBuilder;
 const Datatype = @import("datatype.zig").Datatype;
 const Schema = @import("schema.zig").Schema;
 
-// TODO: Extend this to Chunked Arrays
-pub const Table = struct {
+pub const RecordBatch = struct {
     schema: Schema,
     arrays: []const Array,
     num_rows: i64,
     num_cols: i64,
     allocator: std.mem.Allocator,
 
-    pub fn deinit(self: Table) void {
+    pub fn deinit(self: RecordBatch) void {
         for (self.arrays) |arr| {
             arr.deinit();
         }
@@ -22,28 +21,28 @@ pub const Table = struct {
     }
 };
 
-pub const TableBuilder = struct {
-    const TableBuilderError = error{ DifferingNamesAndColumnLengths, DifferingColumnLengths };
+pub const RecordBatchBuilder = struct {
+    const RecordBatchBuilderError = error{ DifferingNamesAndColumnLengths, DifferingColumnLengths };
 
     schema: Schema,
     arrays: std.ArrayList(Array),
     num_rows: i64,
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator) TableBuilder {
+    pub fn init(allocator: std.mem.Allocator) RecordBatchBuilder {
         const arrays = std.ArrayList(Array).init(allocator);
         const schema = Schema.init(allocator);
         return .{ .schema = schema, .arrays = arrays, .num_rows = 0, .allocator = allocator };
     }
 
-    pub fn deinit(self: TableBuilder) void {
+    pub fn deinit(self: RecordBatchBuilder) void {
         self.arrays.deinit();
     }
 
-    pub fn addColumn(self: *TableBuilder, col_name: []const u8, arr: Array) !void {
+    pub fn addColumn(self: *RecordBatchBuilder, col_name: []const u8, arr: Array) !void {
         if (self.arrays.items.len > 0) {
             if (self.num_rows != arr.length()) {
-                return TableBuilderError.DifferingColumnLengths;
+                return RecordBatchBuilderError.DifferingColumnLengths;
             }
         } else {
             std.debug.assert(arr.length() <= std.math.maxInt(i64));
@@ -53,19 +52,19 @@ pub const TableBuilder = struct {
         try self.arrays.append(arr);
     }
 
-    pub fn addColumns(self: *TableBuilder, col_names: []const []const u8, arrays: []const Array) !void {
+    pub fn addColumns(self: *RecordBatchBuilder, col_names: []const []const u8, arrays: []const Array) !void {
         if (col_names.len != arrays.len) {
-            return TableBuilderError.DifferingNamesAndColumnLengths;
+            return RecordBatchBuilderError.DifferingNamesAndColumnLengths;
         }
         for (0..col_names.len) |i| {
             try self.addColumn(col_names[i], arrays[i]);
         }
     }
 
-    pub fn finish(self: *TableBuilder) !Table {
+    pub fn finish(self: *RecordBatchBuilder) !RecordBatch {
         const finish_arrays = try self.arrays.toOwnedSlice();
         const num_cols = if (finish_arrays.len > 0) @as(i64, @intCast(finish_arrays.len)) else 0;
-        return Table{
+        return RecordBatch{
             .arrays = finish_arrays,
             .schema = self.schema,
             .num_rows = self.num_rows,
@@ -77,7 +76,7 @@ pub const TableBuilder = struct {
 
 const test_allocator = std.testing.allocator;
 
-test "Simple Table Builder" {
+test "Simple RecordBatch Builder" {
     const int_slice = [_]?i32{ 1, 2, null, 3, 4 };
     const bool_slice = [_]?bool{ true, null, false, false, null };
     const str_slice = [_]?[]const u8{ "short", "long__godzilla", null, null, null };
@@ -85,12 +84,12 @@ test "Simple Table Builder" {
     const bool_array = try ArraySliceBuilder(Datatype.Bool).create(&bool_slice, test_allocator);
     const str_array = try ArraySliceBuilder(Datatype.String).create(&str_slice, test_allocator);
 
-    var builder = TableBuilder.init(test_allocator);
+    var builder = RecordBatchBuilder.init(test_allocator);
     defer builder.deinit();
     try builder.addColumns(&.{ "int32", "bool", "string" }, &.{ int_array, bool_array, str_array });
 
-    const table = try builder.finish();
-    defer table.deinit();
-    try std.testing.expectEqual(5, table.num_rows);
-    try std.testing.expectEqual(3, table.num_cols);
+    const rb = try builder.finish();
+    defer rb.deinit();
+    try std.testing.expectEqual(5, rb.num_rows);
+    try std.testing.expectEqual(3, rb.num_cols);
 }

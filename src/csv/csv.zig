@@ -4,7 +4,8 @@ const Datatype = @import("../datatype.zig").Datatype;
 const Scalar = @import("../scalar.zig").Scalar;
 const String = @import("../string.zig").String;
 const ArrayBuilder = @import("../array/array_builder.zig").ArrayBuilder;
-const table = @import("../table.zig");
+const RecordBatch = @import("../record_batch.zig").RecordBatch;
+const RecordBatchBuilder = @import("../record_batch.zig").RecordBatchBuilder;
 
 const SimdMaskRegister = @Vector(simd.ALIGNMENT, u1);
 
@@ -72,7 +73,7 @@ const CsvParser = struct {
 
         var mode: u64 = 0;
         while (i < max_i) : (i += simd.ALIGNMENT) {
-            const b = simd.load(self.buffer[i .. i + simd.ALIGNMENT]);
+            const b: simd.SimdRegister = self.buffer[i .. i + simd.ALIGNMENT][0..simd.ALIGNMENT].*;
             var q_mask: SimdMaskRegister = @bitCast(b == quotes);
             var d_mask: SimdMaskRegister = @bitCast(b == delims);
             var lf_mask: SimdMaskRegister = @bitCast(b == lfs);
@@ -134,15 +135,10 @@ fn initArrayBuilders(row: []const []const u8, allocator: std.mem.Allocator) !std
     return builders;
 }
 
-fn bytesToScalar(raw: []const u8, datatype: Datatype, allocator: std.mem.Allocator) !Scalar {
-    var bytes = raw;
-    if (raw[0] == '"' and raw.len > 1 and raw[raw.len - 1] == '"') {
-        bytes = raw[1 .. raw.len - 2];
-    }
+fn bytesToScalar(bytes: []const u8, datatype: Datatype, allocator: std.mem.Allocator) !Scalar {
     if (bytes.len == 0) {
         return Scalar.parse(datatype, null);
     }
-
     return switch (datatype) {
         .Int32 => Scalar.fromInt32(try std.fmt.parseInt(Datatype.Int32.scalartype(), bytes, 10)),
         .Float => Scalar.fromFloat(try std.fmt.parseFloat(Datatype.Float.scalartype(), bytes)),
@@ -169,7 +165,7 @@ fn bytesToScalar(raw: []const u8, datatype: Datatype, allocator: std.mem.Allocat
     };
 }
 
-pub fn toTable(path: []const u8, delimiter: u8, allocator: std.mem.Allocator) !table.Table {
+pub fn toRecordBatch(path: []const u8, delimiter: u8, allocator: std.mem.Allocator) !RecordBatch {
     const parser = try CsvParser.parse(path, delimiter, allocator);
     defer parser.deinit();
 
@@ -190,18 +186,24 @@ pub fn toTable(path: []const u8, delimiter: u8, allocator: std.mem.Allocator) !t
     var prev = parser.mask.items[parser.num_cols - 1] + 1;
     for (parser.mask.items[parser.num_cols..], parser.num_cols..) |m, i| {
         const builder_index = i % parser.num_cols;
-        const scalar = try bytesToScalar(parser.buffer[prev..m], builders.items[builder_index].datatype(), allocator);
-        try builders.items[builder_index].appendScalar(scalar);
+        const dt = builders.items[builder_index].datatype();
+
+        var bytes = parser.buffer[prev..m];
+        if (bytes[0] == '"' and bytes.len > 1 and bytes[bytes.len - 1] == '"') {
+            bytes = bytes[1 .. bytes.len - 2];
+        }
+        const scalar = try bytesToScalar(bytes, dt, allocator);
+        try builders.items[builder_index].appendScalar(scalar, bytes);
         prev = m + 1;
     }
 
-    var tableBuilder = table.TableBuilder.init(allocator);
-    defer tableBuilder.deinit();
+    var rbBuilder = RecordBatchBuilder.init(allocator);
+    defer rbBuilder.deinit();
     for (builders.items, 0..) |*b, i| {
         const array = try b.finish();
-        try tableBuilder.addColumn(col_names[i], array);
+        try rbBuilder.addColumn(col_names[i], array);
     }
-    return try tableBuilder.finish();
+    return try rbBuilder.finish();
 }
 
 const test_allocator = std.testing.allocator;
@@ -218,8 +220,8 @@ test "CsvParser parse" {
     try std.testing.expectEqual(4, parser.num_cols);
 }
 
-test "toTable on sample data" {
-    const tbl = try toTable("data/sample.csv", ',', test_allocator);
+test "toRecordBatch on sample data" {
+    const tbl = try toRecordBatch("data/sample.csv", ',', test_allocator);
     defer tbl.deinit();
     try std.testing.expectEqual(5, tbl.num_rows);
 }
