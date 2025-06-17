@@ -63,8 +63,10 @@ pub const BufferBuilder = struct {
         try self.data.append(value);
     }
 
-    fn finishBool(self: *BufferBuilder, buffer_length: usize) !Buffer {
+    pub fn finishBool(self: *BufferBuilder) !Buffer {
         std.debug.assert(self.datatype == Datatype.Bool);
+        const builder_length = self.data.items[0].len * self.data.items.len;
+        const buffer_length = builder_length + 8 - (builder_length % 8);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
         @memset(buffer, 0);
@@ -78,20 +80,16 @@ pub const BufferBuilder = struct {
         const builder_length = self.data.items[0].len * self.data.items.len;
         const buffer_length = builder_length + 8 - (builder_length % 8);
 
-        if (self.datatype == Datatype.Bool) {
-            return self.finishBool(buffer_length);
-        } else {
-            const byte_width = self.datatype.byte_width();
-            const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
-            @memset(buffer, 0);
+        const byte_width = self.datatype.byte_width();
+        const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
+        @memset(buffer, 0);
 
-            var i: usize = 0;
-            for (self.data.items) |item| {
-                @memcpy(buffer[i .. i + byte_width], std.mem.sliceAsBytes(item));
-                i += byte_width;
-            }
-            return Buffer{ .data = buffer, .allocator = self.allocator };
+        var i: usize = 0;
+        for (self.data.items) |item| {
+            @memcpy(buffer[i .. i + byte_width], std.mem.sliceAsBytes(item));
+            i += byte_width;
         }
+        return Buffer{ .data = buffer, .allocator = self.allocator };
     }
 };
 
@@ -185,7 +183,7 @@ test "Bool Buffer Builder" {
     try builder.append(&false_slice);
     try builder.append(&true_slice);
 
-    const buffer = try builder.finish();
+    const buffer = try builder.finishBool();
     defer buffer.deinit();
     const expect_slice = [_]u8{ 0b10100000, 0, 0, 0, 0, 0, 0, 0 };
     try std.testing.expectEqual(expect_slice.len, buffer.size());

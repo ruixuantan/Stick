@@ -71,8 +71,7 @@ const PrimitiveArrayBuilder = struct {
         self.base.deinit();
     }
 
-    pub fn appendScalar(self: *PrimitiveArrayBuilder, s: Scalar, raw: []const u8) !void {
-        _ = raw;
+    pub fn appendScalar(self: *PrimitiveArrayBuilder, s: Scalar) !void {
         try self.base.appendScalar(s);
     }
 
@@ -81,6 +80,36 @@ const PrimitiveArrayBuilder = struct {
         const finish_bitmap = try self.base.bitmap_builder.finish();
         return array.Array{ .primitive = array.PrimitiveArray{
             .datatype = self.base.datatype,
+            .length = self.base.length,
+            .null_count = self.base.null_count,
+            .buffer = finish_buffer,
+            .bitmap = finish_bitmap,
+            .allocator = self.base.allocator,
+        } };
+    }
+};
+
+const BooleanArrayBuilder = struct {
+    base: BaseArrayBuilder,
+
+    pub fn init(allocator: std.mem.Allocator) BooleanArrayBuilder {
+        const base = BaseArrayBuilder.init(Datatype.Bool, allocator);
+        return .{ .base = base };
+    }
+
+    pub fn deinit(self: BooleanArrayBuilder) void {
+        self.base.deinit();
+    }
+
+    pub fn appendScalar(self: *BooleanArrayBuilder, s: Scalar) !void {
+        try self.base.appendScalar(s);
+    }
+
+    pub fn finish(self: *BooleanArrayBuilder) !array.Array {
+        const finish_buffer = try self.base.buffer_builder.finishBool();
+        const finish_bitmap = try self.base.bitmap_builder.finish();
+        return array.Array{ .boolean = array.BooleanArray{
+            .datatype = Datatype.Bool,
             .length = self.base.length,
             .null_count = self.base.null_count,
             .buffer = finish_buffer,
@@ -159,11 +188,13 @@ const BinaryViewArrayBuilder = struct {
 
 pub const ArrayBuilder = union(enum) {
     primitive: PrimitiveArrayBuilder,
+    boolean: BooleanArrayBuilder,
     binary_view: BinaryViewArrayBuilder,
 
     pub fn init(dt: Datatype, allocator: std.mem.Allocator) !ArrayBuilder {
         return switch (dt) {
             .String => ArrayBuilder{ .binary_view = try BinaryViewArrayBuilder.init(allocator) },
+            .Bool => ArrayBuilder{ .boolean = BooleanArrayBuilder.init(allocator) },
             else => ArrayBuilder{ .primitive = PrimitiveArrayBuilder.init(dt, allocator) },
         };
     }
@@ -174,9 +205,11 @@ pub const ArrayBuilder = union(enum) {
         }
     }
 
-    pub fn appendScalar(self: *ArrayBuilder, s: Scalar, raw: []const u8) !void {
+    pub fn appendScalar(self: *ArrayBuilder, s: Scalar, raw: ?[]const u8) !void {
         switch (self.*) {
-            inline else => |*b| try b.appendScalar(s, raw),
+            .primitive => |*b| try b.appendScalar(s),
+            .boolean => |*b| try b.appendScalar(s),
+            .binary_view => |*b| try b.appendScalar(s, raw.?),
         }
     }
 
@@ -194,6 +227,7 @@ pub const ArrayBuilder = union(enum) {
     pub fn datatype(self: ArrayBuilder) Datatype {
         return switch (self) {
             .primitive => |p| p.base.datatype,
+            .boolean => Datatype.Bool,
             .binary_view => Datatype.String,
         };
     }
@@ -235,10 +269,10 @@ test "Int32 Array Builder" {
     var builder = try ArrayBuilder.init(Datatype.Int32, test_allocator);
     defer builder.deinit();
 
-    try builder.appendScalar(Scalar.fromInt32(1), "");
-    try builder.appendScalar(Scalar.fromInt32(2), "");
-    try builder.appendScalar(Scalar.nullInt32(), "");
-    try builder.appendScalar(Scalar.fromInt32(3), "");
+    try builder.appendScalar(Scalar.fromInt32(1), null);
+    try builder.appendScalar(Scalar.fromInt32(2), null);
+    try builder.appendScalar(Scalar.nullInt32(), null);
+    try builder.appendScalar(Scalar.fromInt32(3), null);
 
     const arr = try builder.finish();
     defer arr.deinit();
@@ -255,9 +289,9 @@ test "Bool Array Builder" {
     var builder = try ArrayBuilder.init(Datatype.Bool, test_allocator);
     defer builder.deinit();
 
-    try builder.appendScalar(Scalar.nullBool(), "");
-    try builder.appendScalar(Scalar.fromBool(true), "");
-    try builder.appendScalar(Scalar.fromBool(false), "");
+    try builder.appendScalar(Scalar.nullBool(), null);
+    try builder.appendScalar(Scalar.fromBool(true), null);
+    try builder.appendScalar(Scalar.fromBool(false), null);
 
     const arr = try builder.finish();
     defer arr.deinit();

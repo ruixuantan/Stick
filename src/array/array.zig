@@ -21,14 +21,29 @@ pub const PrimitiveArray = struct {
     }
 
     pub fn takeUnsafe(self: PrimitiveArray, i: usize) Scalar {
-        if (self.datatype.bit_width() == 1) {
-            return Scalar.fromBytes(
-                self.datatype,
-                &.{@popCount(self.buffer.data[i >> 3] & (@as(u8, 0b1000_0000) >> @intCast(i % 8)))},
-            );
-        }
         const start = i * self.datatype.byte_width();
         return Scalar.fromBytes(self.datatype, self.buffer.data[start .. start + self.datatype.byte_width()]);
+    }
+};
+
+pub const BooleanArray = struct {
+    datatype: Datatype,
+    length: i64,
+    null_count: i64,
+    buffer: Buffer,
+    bitmap: Bitmap,
+    allocator: std.mem.Allocator,
+
+    pub fn deinit(self: BooleanArray) void {
+        self.buffer.deinit();
+        self.bitmap.deinit();
+    }
+
+    pub fn takeUnsafe(self: BooleanArray, i: usize) Scalar {
+        return Scalar.fromBytes(
+            self.datatype,
+            &.{@popCount(self.buffer.data[i >> 3] & (@as(u8, 0b1000_0000) >> @intCast(i % 8)))},
+        );
     }
 };
 
@@ -64,6 +79,7 @@ pub const Array = union(enum) {
     const ArrayError = error{IndexOutOfBounds};
 
     primitive: PrimitiveArray,
+    boolean: BooleanArray,
     binary_view: BinaryViewArray,
 
     pub fn deinit(self: Array) void {
