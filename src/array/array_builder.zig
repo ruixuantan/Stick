@@ -255,18 +255,18 @@ test "Bool Array Builder" {
     var builder = try ArrayBuilder.init(Datatype.Bool, test_allocator);
     defer builder.deinit();
 
+    try builder.appendScalar(Scalar.nullBool(), "");
     try builder.appendScalar(Scalar.fromBool(true), "");
     try builder.appendScalar(Scalar.fromBool(false), "");
-    try builder.appendScalar(Scalar.nullBool(), "");
 
     const arr = try builder.finish();
     defer arr.deinit();
 
     try std.testing.expectEqual(3, arr.length());
     try std.testing.expectEqual(1, arr.null_count());
-    try std.testing.expect(try arr.isValid(0));
+    try std.testing.expect(!try arr.isValid(0));
     try std.testing.expect(try arr.isValid(1));
-    try std.testing.expect(!try arr.isValid(2));
+    try std.testing.expect(try arr.isValid(2));
 }
 
 test "String Array Builder" {

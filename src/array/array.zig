@@ -5,8 +5,7 @@ const Buffer = buffer.Buffer;
 const Bitmap = buffer.Bitmap;
 const BufferBuilder = buffer.BufferBuilder;
 const BitmapBuilder = buffer.BitmapBuilder;
-const scalar = @import("../scalar.zig");
-const Scalar = scalar.Scalar;
+const Scalar = @import("../scalar.zig").Scalar;
 
 pub const PrimitiveArray = struct {
     datatype: Datatype,
@@ -19,6 +18,17 @@ pub const PrimitiveArray = struct {
     pub fn deinit(self: PrimitiveArray) void {
         self.buffer.deinit();
         self.bitmap.deinit();
+    }
+
+    pub fn takeUnsafe(self: PrimitiveArray, i: usize) Scalar {
+        if (self.datatype.bit_width() == 1) {
+            return Scalar.fromBytes(
+                self.datatype,
+                &.{@popCount(self.buffer.data[i >> 3] & (@as(u8, 0b1000_0000) >> @intCast(i % 8)))},
+            );
+        }
+        const start = i * self.datatype.byte_width();
+        return Scalar.fromBytes(self.datatype, self.buffer.data[start .. start + self.datatype.byte_width()]);
     }
 };
 
@@ -39,6 +49,14 @@ pub const BinaryViewArray = struct {
             b.deinit();
         }
         self.allocator.free(self.buffers);
+    }
+
+    pub fn takeUnsafe(self: BinaryViewArray, i: usize) Scalar {
+        const start = i * self.datatype.byte_width();
+        return Scalar.fromBytes(
+            self.datatype,
+            self.views_buffer.data[start .. start + self.datatype.byte_width()],
+        );
     }
 };
 
@@ -67,19 +85,28 @@ pub const Array = union(enum) {
 
     pub fn null_count(self: Array) i64 {
         return switch (self) {
-            inline else => |s| s.null_count,
+            inline else => |arr| arr.null_count,
         };
     }
 
     pub fn length(self: Array) i64 {
         return switch (self) {
-            inline else => |s| s.length,
+            inline else => |arr| arr.length,
         };
     }
 
     pub fn datatype(self: Array) Datatype {
         return switch (self) {
-            inline else => |s| s.datatype,
+            inline else => |arr| arr.datatype,
+        };
+    }
+
+    pub fn take(self: Array, i: usize) !Scalar {
+        if (!try self.isValid(i)) {
+            return Scalar.parse(self.datatype(), null);
+        }
+        return switch (self) {
+            inline else => |arr| arr.takeUnsafe(i),
         };
     }
 };

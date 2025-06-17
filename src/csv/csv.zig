@@ -221,7 +221,7 @@ test "CsvParser parse" {
 }
 
 test "toRecordBatch on sample data" {
-    const tbl = try toRecordBatch("data/sample.csv", ',', test_allocator);
-    defer tbl.deinit();
-    try std.testing.expectEqual(5, tbl.num_rows);
+    const rb = try toRecordBatch("data/sample.csv", ',', test_allocator);
+    defer rb.deinit();
+    try std.testing.expectEqual(5, rb.num_rows);
 }
