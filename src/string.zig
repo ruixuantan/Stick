@@ -14,6 +14,10 @@ const ShortString = packed struct {
         }
         return .{ .length = @intCast(bytes.len), .data = @bitCast(data) };
     }
+
+    pub fn toString(self: ShortString, buf: []u8) ![]const u8 {
+        return try std.fmt.bufPrint(buf, "{s}", .{std.mem.toBytes(self.data)[0..self.length]});
+    }
 };
 
 const LongString = packed struct {
@@ -29,6 +33,10 @@ const LongString = packed struct {
             data[i] = bytes[i];
         }
         return .{ .length = @intCast(bytes.len), .prefix = @bitCast(data), .buf_index = undefined, .buf_offset = undefined };
+    }
+
+    pub fn toString(self: LongString, buf: []u8) ![]const u8 {
+        return try std.fmt.bufPrint(buf, "{s}", .{&std.mem.toBytes(self.prefix)});
     }
 };
 
@@ -48,6 +56,12 @@ pub const String = union(enum) {
         return switch (self) {
             .long => true,
             else => false,
+        };
+    }
+
+    pub fn toString(self: String, buf: []u8) ![]const u8 {
+        return switch (self) {
+            inline else => |s| try s.toString(buf),
         };
     }
 };

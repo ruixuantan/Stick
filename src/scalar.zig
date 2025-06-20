@@ -29,6 +29,38 @@ fn BaseScalar(datatype: Datatype) type {
     };
 }
 
+const StringScalar = struct {
+    const BaseStringScalar = BaseScalar(Datatype.String);
+
+    base: BaseStringScalar,
+    view: []const u8,
+
+    pub fn init(value: []const u8) StringScalar {
+        const base = BaseStringScalar.init(String.init(value));
+        return .{ .base = base, .view = value };
+    }
+
+    pub fn initNull() StringScalar {
+        return .{ .base = BaseStringScalar.initNull(), .view = undefined };
+    }
+
+    pub fn toBytes(self: StringScalar) [@sizeOf(String)]u8 {
+        return self.base.toBytes();
+    }
+
+    pub fn fromBytes(bytes: []const u8) StringScalar {
+        return .{ .base = BaseStringScalar.init(std.mem.bytesAsValue(String, bytes).*), .view = undefined };
+    }
+
+    pub fn toString(self: StringScalar, buf: []u8) ![]const u8 {
+        if (self.base.value.isLong()) {
+            return self.view;
+        } else {
+            return try self.base.value.toString(buf);
+        }
+    }
+};
+
 const BoolScalar = BaseScalar(Datatype.Bool);
 const Int8Scalar = BaseScalar(Datatype.Int8);
 const Int16Scalar = BaseScalar(Datatype.Int16);
@@ -36,7 +68,6 @@ const Int32Scalar = BaseScalar(Datatype.Int32);
 const Int64Scalar = BaseScalar(Datatype.Int64);
 const FloatScalar = BaseScalar(Datatype.Float);
 const DoubleScalar = BaseScalar(Datatype.Double);
-const StringScalar = BaseScalar(Datatype.String);
 
 pub const Scalar = union(enum) {
     bool: BoolScalar,
@@ -160,7 +191,7 @@ pub const Scalar = union(enum) {
         }
     }
 
-    pub fn fromString(value: String) Scalar {
+    pub fn fromString(value: []const u8) Scalar {
         return Scalar{ .string = StringScalar.init(value) };
     }
 
@@ -168,7 +199,7 @@ pub const Scalar = union(enum) {
         return Scalar{ .string = StringScalar.initNull() };
     }
 
-    pub fn fromNullableString(value: ?String) Scalar {
+    pub fn fromNullableString(value: ?[]const u8) Scalar {
         if (value) |v| {
             return Scalar.fromString(v);
         } else {
@@ -191,6 +222,7 @@ pub const Scalar = union(enum) {
 
     pub fn isValid(self: Scalar) bool {
         switch (self) {
+            .string => |s| return s.base.is_valid,
             inline else => |s| return s.is_valid,
         }
     }
@@ -211,6 +243,22 @@ pub const Scalar = union(enum) {
             .Float => Scalar{ .float = FloatScalar.fromBytes(bytes) },
             .Double => Scalar{ .double = DoubleScalar.fromBytes(bytes) },
             .String => Scalar{ .string = StringScalar.fromBytes(bytes) },
+        };
+    }
+
+    pub fn toString(self: Scalar, buf: []u8) ![]const u8 {
+        if (!self.isValid()) {
+            return "null";
+        }
+        return switch (self) {
+            .bool => try std.fmt.bufPrint(buf, "{any}", .{self.bool.value}),
+            .int8 => try std.fmt.bufPrint(buf, "{d}", .{self.int8.value}),
+            .int16 => try std.fmt.bufPrint(buf, "{d}", .{self.int16.value}),
+            .int32 => try std.fmt.bufPrint(buf, "{d}", .{self.int32.value}),
+            .int64 => try std.fmt.bufPrint(buf, "{d}", .{self.int64.value}),
+            .float => try std.fmt.bufPrint(buf, "{d}", .{self.float.value}),
+            .double => try std.fmt.bufPrint(buf, "{d}", .{self.double.value}),
+            .string => try self.string.toString(buf),
         };
     }
 };
@@ -251,11 +299,11 @@ test "fromBytes toBytes test" {
     const doubleScalarFrom = Scalar.fromBytes(Datatype.Double, doubleSlice);
     try std.testing.expectEqual(doubleScalar, doubleScalarFrom);
 
-    var stringScalar = Scalar.fromString(String.init("string scalar"));
+    var stringScalar = Scalar.fromString("string scalar");
     const stringSlice = try stringScalar.toBytes(test_allocator);
     defer test_allocator.free(stringSlice);
     const stringScalarFrom = Scalar.fromBytes(Datatype.String, stringSlice);
-    try std.testing.expectEqual(stringScalar, stringScalarFrom);
+    try std.testing.expectEqual(stringScalar.string.base, stringScalarFrom.string.base);
 
     var boolScalar = Scalar.fromBool(false);
     const boolSlice = try boolScalar.toBytes(test_allocator);

@@ -37,6 +37,6 @@ test "BinaryView String array" {
 
     try std.testing.expectEqual(4, arr.length());
     try std.testing.expectEqual(1, arr.null_count());
-    try std.testing.expectEqual(String.init("ccc"), (try arr.take(3)).string.value);
+    try std.testing.expectEqual(String.init("ccc"), (try arr.take(3)).string.base.value);
     try std.testing.expectEqual(Scalar.nullString(), try arr.take(2));
 }

@@ -68,10 +68,17 @@ pub const BinaryViewArray = struct {
 
     pub fn takeUnsafe(self: BinaryViewArray, i: usize) Scalar {
         const start = i * self.datatype.byte_width();
-        return Scalar.fromBytes(
+        var s = Scalar.fromBytes(
             self.datatype,
             self.views_buffer.data[start .. start + self.datatype.byte_width()],
         );
+        if (s.string.base.value.isLong()) {
+            const index = s.string.base.value.long.buf_index;
+            const offset = s.string.base.value.long.buf_offset;
+            const length = s.string.base.value.long.length;
+            s.string.view = self.buffers[index].data[offset .. offset + length];
+        }
+        return s;
     }
 };
 

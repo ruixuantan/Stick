@@ -67,6 +67,15 @@ pub const PrettyPrinter = struct {
             try output.append(outputCol);
         }
 
+        for (record_batch.arrays, 0..) |arr, i| {
+            for (0..@intCast(record_batch.num_rows)) |j| {
+                const s = try arr.take(j);
+                const bufStr = try s.toString(&buf);
+                const str = try self.buffer.append(bufStr);
+                try output.items[i].append(str);
+            }
+        }
+
         for (output.items) |col| {
             for (col.items) |cell| {
                 std.debug.print("{s}\n", .{cell});

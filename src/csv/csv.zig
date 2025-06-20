@@ -135,19 +135,31 @@ fn initArrayBuilders(row: []const []const u8, allocator: std.mem.Allocator) !std
     return builders;
 }
 
-fn bytesToScalar(bytes: []const u8, datatype: Datatype, allocator: std.mem.Allocator) !Scalar {
+fn appendBytesAsScalar(
+    bytes: []const u8,
+    datatype: Datatype,
+    builder: *ArrayBuilder,
+    allocator: std.mem.Allocator,
+) !void {
     if (bytes.len == 0) {
-        return Scalar.parse(datatype, null);
+        try builder.appendScalar(Scalar.parse(datatype, null));
     }
     return switch (datatype) {
-        .Int32 => Scalar.fromInt32(try std.fmt.parseInt(Datatype.Int32.scalartype(), bytes, 10)),
-        .Float => Scalar.fromFloat(try std.fmt.parseFloat(Datatype.Float.scalartype(), bytes)),
+        .Int32 => {
+            const s = Scalar.fromInt32(try std.fmt.parseInt(Datatype.Int32.scalartype(), bytes, 10));
+            try builder.appendScalar(s);
+        },
+        .Float => {
+            const s = Scalar.fromFloat(try std.fmt.parseFloat(Datatype.Float.scalartype(), bytes));
+            try builder.appendScalar(s);
+        },
         .Bool => {
-            return switch (bytes[0]) {
+            const s = switch (bytes[0]) {
                 't', 'T' => Scalar.fromBool(true),
                 'f', 'F' => Scalar.fromBool(false),
                 else => @panic("Only values of 'true' or 'false' are recognized"),
             };
+            try builder.appendScalar(s);
         },
         .String => {
             var stringBuilder = std.ArrayList(u8).init(allocator);
@@ -159,7 +171,9 @@ fn bytesToScalar(bytes: []const u8, datatype: Datatype, allocator: std.mem.Alloc
                 try stringBuilder.append(c);
             }
             try stringBuilder.append(bytes[bytes.len - 1]);
-            return Scalar.fromString(String.init(stringBuilder.items));
+            var s = Scalar.fromString(stringBuilder.items);
+            s.string.view = stringBuilder.items;
+            try builder.appendScalar(s);
         },
         else => @panic("Only datatypes of Int32, Float, Bool, String are recognized for CSV input"),
     };
@@ -190,10 +204,9 @@ pub fn toRecordBatch(path: []const u8, delimiter: u8, allocator: std.mem.Allocat
 
         var bytes = parser.buffer[prev..m];
         if (bytes[0] == '"' and bytes.len > 1 and bytes[bytes.len - 1] == '"') {
-            bytes = bytes[1 .. bytes.len - 2];
+            bytes = bytes[1 .. bytes.len - 1];
         }
-        const scalar = try bytesToScalar(bytes, dt, allocator);
-        try builders.items[builder_index].appendScalar(scalar, bytes);
+        try appendBytesAsScalar(bytes, dt, &builders.items[builder_index], allocator);
         prev = m + 1;
     }
 
