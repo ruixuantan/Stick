@@ -129,7 +129,10 @@ fn initArrayBuilders(row: []const []const u8, allocator: std.mem.Allocator) !std
         } else {
             datatype = Datatype.inferDatatype(val);
         }
-        std.debug.assert(datatype == Datatype.Float or datatype == Datatype.Int32 or datatype == Datatype.Bool or datatype == Datatype.String);
+        std.debug.assert(datatype == Datatype.Float or
+            datatype == Datatype.Int32 or
+            datatype == Datatype.Bool or
+            datatype == Datatype.String);
         try builders.append(try ArrayBuilder.init(datatype, allocator));
     }
     return builders;

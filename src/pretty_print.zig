@@ -12,7 +12,13 @@ const PrinterBuffer = struct {
 
     fn init(size: usize, max_col_size: usize, allocator: std.mem.Allocator) !PrinterBuffer {
         const buffer = try allocator.alloc(u8, size);
-        return .{ .buffer = buffer, .index = 0, .size = size, .max_col_size = max_col_size, .allocator = allocator };
+        return .{
+            .buffer = buffer,
+            .index = 0,
+            .size = size,
+            .max_col_size = max_col_size,
+            .allocator = allocator,
+        };
     }
 
     fn deinit(self: PrinterBuffer) void {

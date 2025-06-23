@@ -3,8 +3,6 @@ const Datatype = @import("../datatype.zig").Datatype;
 const buffer = @import("buffer.zig");
 const Buffer = buffer.Buffer;
 const Bitmap = buffer.Bitmap;
-const BufferBuilder = buffer.BufferBuilder;
-const BitmapBuilder = buffer.BitmapBuilder;
 const Scalar = @import("../scalar.zig").Scalar;
 
 pub const PrimitiveArray = struct {

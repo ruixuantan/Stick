@@ -1,6 +1,9 @@
 const std = @import("std");
 const Datatype = @import("datatype.zig").Datatype;
-const String = @import("string.zig").String;
+const string = @import("string.zig");
+const String = string.String;
+
+pub const ScalarByteBuf = [string.StringSize]u8;
 
 fn BaseScalar(datatype: Datatype) type {
     const T = datatype.scalartype();
@@ -19,8 +22,8 @@ fn BaseScalar(datatype: Datatype) type {
             return .{ .is_valid = false, .value = undefined };
         }
 
-        pub fn toBytes(self: Self) [@sizeOf(T)]u8 {
-            return std.mem.toBytes(self.value);
+        pub fn toBytes(self: Self, buf: []u8) void {
+            @memcpy(buf[0..datatype.byte_width()], &std.mem.toBytes(self.value));
         }
 
         pub fn fromBytes(bytes: []const u8) Self {
@@ -44,12 +47,13 @@ const StringScalar = struct {
         return .{ .base = BaseStringScalar.initNull(), .view = undefined };
     }
 
-    pub fn toBytes(self: StringScalar) [@sizeOf(String)]u8 {
-        return self.base.toBytes();
+    pub fn toBytes(self: StringScalar, buf: []u8) void {
+        self.base.value.toBytes(buf);
     }
 
     pub fn fromBytes(bytes: []const u8) StringScalar {
-        return .{ .base = BaseStringScalar.init(std.mem.bytesAsValue(String, bytes).*), .view = undefined };
+        std.debug.assert(bytes.len == string.StringSize);
+        return .{ .base = BaseStringScalar.init(String.fromBytes(bytes)), .view = undefined };
     }
 
     pub fn toString(self: StringScalar, buf: []u8) ![]const u8 {
@@ -227,9 +231,9 @@ pub const Scalar = union(enum) {
         }
     }
 
-    pub fn toBytes(self: Scalar, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn toBytes(self: Scalar, buf: []u8) void {
         switch (self) {
-            inline else => |s| return try allocator.dupe(u8, &s.toBytes()),
+            inline else => |s| s.toBytes(buf),
         }
     }
 
@@ -266,48 +270,40 @@ pub const Scalar = union(enum) {
 const test_allocator = std.testing.allocator;
 
 test "Int32Scalar test" {
+    var buf: [string.StringSize]u8 = undefined;
     var scalar = Scalar.fromInt32(1);
     const scalar_slice = [_]u8{ 1, 0, 0, 0 };
-    const int32_slice = try scalar.toBytes(test_allocator);
-    defer test_allocator.free(int32_slice);
-    try std.testing.expectEqualSlices(u8, &scalar_slice, int32_slice);
-
-    var null_scalar = Scalar.nullInt32();
-    const null_slice = try null_scalar.toBytes(test_allocator);
-    defer test_allocator.free(null_slice);
-    try std.testing.expectEqual(4, null_slice.len);
+    scalar.toBytes(&buf);
+    try std.testing.expectEqualSlices(u8, &scalar_slice, buf[0..4]);
 }
 
 test "BoolScalar test" {
+    var buf: [string.StringSize]u8 = undefined;
     var scalar = Scalar.fromBool(true);
     const scalar_slice = [_]u8{1};
-    const bool_slice = try scalar.toBytes(test_allocator);
-    defer test_allocator.free(bool_slice);
-    try std.testing.expectEqualSlices(u8, &scalar_slice, bool_slice);
+    scalar.toBytes(&buf);
+    try std.testing.expectEqualSlices(u8, &scalar_slice, buf[0..1]);
 }
 
 test "fromBytes toBytes test" {
+    var buf: [string.StringSize]u8 = undefined;
     var int32Scalar = Scalar.fromInt32(32);
-    const int32Slice = try int32Scalar.toBytes(test_allocator);
-    defer test_allocator.free(int32Slice);
-    const int32ScalarFrom = Scalar.fromBytes(Datatype.Int32, int32Slice);
+    int32Scalar.toBytes(&buf);
+    const int32ScalarFrom = Scalar.fromBytes(Datatype.Int32, buf[0..4]);
     try std.testing.expectEqual(int32Scalar, int32ScalarFrom);
 
     var doubleScalar = Scalar.fromDouble(2.222);
-    const doubleSlice = try doubleScalar.toBytes(test_allocator);
-    defer test_allocator.free(doubleSlice);
-    const doubleScalarFrom = Scalar.fromBytes(Datatype.Double, doubleSlice);
+    doubleScalar.toBytes(&buf);
+    const doubleScalarFrom = Scalar.fromBytes(Datatype.Double, buf[0..8]);
     try std.testing.expectEqual(doubleScalar, doubleScalarFrom);
 
     var stringScalar = Scalar.fromString("string scalar");
-    const stringSlice = try stringScalar.toBytes(test_allocator);
-    defer test_allocator.free(stringSlice);
-    const stringScalarFrom = Scalar.fromBytes(Datatype.String, stringSlice);
+    stringScalar.toBytes(&buf);
+    const stringScalarFrom = Scalar.fromBytes(Datatype.String, buf[0..16]);
     try std.testing.expectEqual(stringScalar.string.base, stringScalarFrom.string.base);
 
     var boolScalar = Scalar.fromBool(false);
-    const boolSlice = try boolScalar.toBytes(test_allocator);
-    defer test_allocator.free(boolSlice);
-    const boolScalarFrom = Scalar.fromBytes(Datatype.Bool, boolSlice);
+    boolScalar.toBytes(&buf);
+    const boolScalarFrom = Scalar.fromBytes(Datatype.Bool, buf[0..1]);
     try std.testing.expectEqual(boolScalar, boolScalarFrom);
 }

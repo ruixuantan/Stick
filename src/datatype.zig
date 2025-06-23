@@ -11,7 +11,7 @@ pub const Datatype = enum {
     Double,
     String,
 
-    pub fn bit_width(self: Datatype) usize {
+    pub inline fn bit_width(self: Datatype) usize {
         return switch (self) {
             .Bool => 1,
             .Int8 => @bitSizeOf(i8),
@@ -20,11 +20,11 @@ pub const Datatype = enum {
             .Int64 => @bitSizeOf(i64),
             .Float => @bitSizeOf(f32),
             .Double => @bitSizeOf(f64),
-            .String => @bitSizeOf(string.String),
+            .String => string.StringBitSize,
         };
     }
 
-    pub fn toString(self: Datatype) []const u8 {
+    pub inline fn toString(self: Datatype) []const u8 {
         return switch (self) {
             .Bool => "Bool",
             .Int8 => "Int8",
@@ -37,11 +37,11 @@ pub const Datatype = enum {
         };
     }
 
-    pub fn byte_width(self: Datatype) usize {
+    pub inline fn byte_width(self: Datatype) usize {
         return @max(self.bit_width() >> 3, 1);
     }
 
-    pub fn ztype(self: Datatype) type {
+    pub inline fn ztype(self: Datatype) type {
         return switch (self) {
             .Bool => bool,
             .Int8 => i8,
@@ -54,20 +54,14 @@ pub const Datatype = enum {
         };
     }
 
-    pub fn scalartype(self: Datatype) type {
+    pub inline fn scalartype(self: Datatype) type {
         return switch (self) {
-            .Bool => bool,
-            .Int8 => i8,
-            .Int16 => i16,
-            .Int32 => i32,
-            .Int64 => i64,
-            .Float => f32,
-            .Double => f64,
             .String => string.String,
+            else => self.ztype(),
         };
     }
 
-    pub fn isPrimitive(self: Datatype) bool {
+    pub inline fn isPrimitive(self: Datatype) bool {
         return switch (self) {
             .Bool, .Int8, .Int16, .Int32, .Int64, .Float, .Double => true,
             else => false,

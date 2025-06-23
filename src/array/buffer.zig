@@ -1,5 +1,7 @@
 const std = @import("std");
 const simd = @import("../simd.zig");
+const scalar = @import("../scalar.zig");
+const Scalar = scalar.Scalar;
 const Datatype = @import("../datatype.zig").Datatype;
 
 pub const Buffer = struct {
@@ -35,60 +37,50 @@ pub const Bitmap = struct {
 
 pub const BufferBuilder = struct {
     datatype: Datatype,
-    data: std.ArrayList([]const u8),
+    data: std.ArrayList(u8),
     allocator: std.mem.Allocator,
 
     pub fn init(datatype: Datatype, allocator: std.mem.Allocator) BufferBuilder {
-        const data = std.ArrayList([]const u8).init(allocator);
+        const data = std.ArrayList(u8).init(allocator);
         return .{ .datatype = datatype, .data = data, .allocator = allocator };
     }
 
-    fn nonDupeDeinit(self: BufferBuilder) void {
-        self.data.deinit();
-    }
-
     pub fn deinit(self: BufferBuilder) void {
-        for (self.data.items) |item| {
-            self.allocator.free(item);
-        }
         self.data.deinit();
     }
 
     pub fn appendNull(self: *BufferBuilder) !void {
-        const slice = try self.allocator.alloc(u8, self.datatype.byte_width());
-        try self.data.append(slice);
+        for (0..self.datatype.byte_width()) |_| {
+            try self.data.append(0);
+        }
     }
 
-    pub fn append(self: *BufferBuilder, value: []const u8) !void {
-        try self.data.append(value);
+    pub fn append(self: *BufferBuilder, s: Scalar) !void {
+        var buf: scalar.ScalarByteBuf = undefined;
+        s.toBytes(&buf);
+        try self.data.appendSlice(buf[0..self.datatype.byte_width()]);
     }
 
     pub fn finishBool(self: *BufferBuilder) !Buffer {
         std.debug.assert(self.datatype == Datatype.Bool);
-        const builder_length = self.data.items[0].len * self.data.items.len;
+        const builder_length = self.data.items.len;
         const buffer_length = builder_length + 8 - (builder_length % 8);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
         @memset(buffer, 0);
         for (self.data.items, 0..) |item, i| {
-            buffer[i >> 3] |= item[0] << @intCast(7 - (i % 8));
+            buffer[i >> 3] |= item << @intCast(7 - (i % 8));
         }
         return Buffer{ .data = buffer, .allocator = self.allocator };
     }
 
     pub fn finish(self: *BufferBuilder) !Buffer {
-        const builder_length = self.data.items[0].len * self.data.items.len;
+        const builder_length = self.data.items.len;
         const buffer_length = builder_length + 8 - (builder_length % 8);
 
-        const byte_width = self.datatype.byte_width();
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
         @memset(buffer, 0);
-
-        var i: usize = 0;
-        for (self.data.items) |item| {
-            @memcpy(buffer[i .. i + byte_width], std.mem.sliceAsBytes(item));
-            i += byte_width;
-        }
+        @memcpy(buffer[0..builder_length], self.data.items);
         return Buffer{ .data = buffer, .allocator = self.allocator };
     }
 };
@@ -160,12 +152,10 @@ const test_allocator = std.testing.allocator;
 
 test "Int32 Buffer Builder" {
     var builder = BufferBuilder.init(Datatype.Int32, test_allocator);
-    defer builder.nonDupeDeinit();
-    const one_slice = [_]u8{ 1, 0, 0, 0 };
-    try builder.append(&one_slice);
-    const two_slice = [_]u8{ 2, 0, 0, 0 };
-    try builder.append(&two_slice);
-    try builder.append(&one_slice);
+    defer builder.deinit();
+    try builder.append(Scalar.fromInt32(1));
+    try builder.append(Scalar.fromInt32(2));
+    try builder.append(Scalar.fromInt32(1));
 
     const buffer = try builder.finish();
     defer buffer.deinit();
@@ -176,12 +166,10 @@ test "Int32 Buffer Builder" {
 
 test "Bool Buffer Builder" {
     var builder = BufferBuilder.init(Datatype.Bool, test_allocator);
-    defer builder.nonDupeDeinit();
-    const true_slice = [_]u8{1};
-    try builder.append(&true_slice);
-    const false_slice = [_]u8{0};
-    try builder.append(&false_slice);
-    try builder.append(&true_slice);
+    defer builder.deinit();
+    try builder.append(Scalar.fromBool(true));
+    try builder.append(Scalar.fromBool(false));
+    try builder.append(Scalar.fromBool(true));
 
     const buffer = try builder.finishBool();
     defer buffer.deinit();

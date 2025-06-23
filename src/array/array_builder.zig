@@ -4,7 +4,8 @@ const buffer = @import("buffer.zig");
 const BufferBuilder = buffer.BufferBuilder;
 const FixedBufferBuilder = buffer.FixedBufferBuilder;
 const BitmapBuilder = buffer.BitmapBuilder;
-const Scalar = @import("../scalar.zig").Scalar;
+const scalar = @import("../scalar.zig");
+const Scalar = scalar.Scalar;
 const string = @import("../string.zig");
 const array = @import("array.zig");
 
@@ -43,15 +44,15 @@ const BaseArrayBuilder = struct {
         try self.bitmap_builder.appendInvalid();
     }
 
-    fn append(self: *BaseArrayBuilder, bytes: []const u8) !void {
+    fn append(self: *BaseArrayBuilder, s: Scalar) !void {
         self.length += 1;
-        try self.buffer_builder.append(bytes);
+        try self.buffer_builder.append(s);
         try self.bitmap_builder.appendValid();
     }
 
     fn appendScalar(self: *BaseArrayBuilder, s: Scalar) !void {
         if (s.isValid()) {
-            try self.append(try s.toBytes(self.allocator));
+            try self.append(s);
         } else {
             try self.appendNull();
         }
@@ -159,7 +160,6 @@ const BinaryViewArrayBuilder = struct {
     }
 
     pub fn appendScalar(self: *BinaryViewArrayBuilder, s: Scalar) !void {
-        // Scalar shoud have buffer index and offset set
         if (s.isValid() and s.string.base.value.isLong()) {
             const updated = try self.updateLongScalar(s);
             try self.base.appendScalar(updated);
@@ -242,16 +242,8 @@ pub fn ArraySliceBuilder(datatype: Datatype) type {
             defer builder.deinit();
 
             for (slice) |item| {
-                // var s: Scalar = undefined;
-                // if (datatype == Datatype.String) {
-                //     const raw = if (item == null) null else string.String.init(item.?);
-                //     s = Scalar.parse(datatype, raw);
-                //     s.string.view = item orelse undefined;
-                //     try builder.appendScalar(s);
-                // } else {
                 const s = Scalar.parse(datatype, item);
                 try builder.appendScalar(s);
-                // }
             }
             return try builder.finish();
         }

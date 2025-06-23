@@ -64,7 +64,26 @@ pub const String = union(enum) {
             inline else => |s| try s.toString(buf),
         };
     }
+
+    pub fn toBytes(self: String, buf: []u8) void {
+        switch (self) {
+            .long => |l| @memcpy(buf, &std.mem.toBytes(l)),
+            .short => |s| @memcpy(buf, &std.mem.toBytes(s)),
+        }
+    }
+
+    pub fn fromBytes(bytes: []const u8) String {
+        const short = std.mem.bytesAsValue(ShortString, bytes).*;
+        if (short.length <= MAX_PREFIX_LEN) {
+            return String{ .short = short };
+        } else {
+            return String{ .long = std.mem.bytesAsValue(LongString, bytes).* };
+        }
+    }
 };
+
+pub const StringBitSize = @bitSizeOf(ShortString);
+pub const StringSize = @sizeOf(ShortString);
 
 test "Initialise short string" {
     const short = "short";
