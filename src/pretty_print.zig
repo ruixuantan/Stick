@@ -1,5 +1,8 @@
 const std = @import("std");
 const RecordBatch = @import("record_batch.zig").RecordBatch;
+const Datatype = @import("datatype.zig").Datatype;
+const Array = @import("array/array.zig").Array;
+const ArraySliceBuilder = @import("array/array_builder.zig").ArraySliceBuilder;
 
 const PrinterBuffer = struct {
     const PrinterBufferError = error{OutOfMemory};
@@ -98,6 +101,33 @@ pub const PrettyPrinter = struct {
         try self.builder.appendSlice("|\n");
     }
 
+    pub fn printArray(self: *PrettyPrinter, arr: Array) ![]const u8 {
+        try self.initBuffer(@intCast(arr.length()));
+        defer {
+            self.buffer.deinit();
+            self.buffer = undefined;
+        }
+
+        var buf: [80]u8 = undefined;
+        const head = try std.fmt.bufPrint(&buf, "{s} n={d}\n", .{ arr.datatype().toString(), arr.length() });
+        try self.builder.appendSlice(head);
+
+        try self.builder.appendSlice("[\n");
+        for (0..@intCast(arr.length())) |i| {
+            try self.builder.appendSlice("  ");
+            const s = try arr.take(i);
+            const str = try s.toString(&buf);
+            try self.builder.appendSlice(str);
+            try self.builder.append(',');
+            try self.builder.append('\n');
+        }
+        try self.builder.appendSlice("]\n");
+
+        const output = try self.builder.toOwnedSlice();
+        self.builder = try std.ArrayList(u8).initCapacity(self.allocator, self.buffer.size);
+        return output;
+    }
+
     pub fn printRecordBatch(self: *PrettyPrinter, record_batch: RecordBatch) ![]const u8 {
         var str_rb = std.ArrayList(std.ArrayList([]const u8)).init(self.allocator);
         defer {
@@ -172,6 +202,29 @@ pub const PrettyPrinter = struct {
 
 const csv = @import("csv/csv.zig");
 const test_allocator = std.testing.allocator;
+
+test "PrettyPrinter print array" {
+    const raw = [_]?i16{ 1, null, 100, null, 10000 };
+    const arr = try ArraySliceBuilder(Datatype.Int16).create(&raw, test_allocator);
+    defer arr.deinit();
+
+    var printer = try PrettyPrinter.init(10, 5, test_allocator);
+    const arr_str = try printer.printArray(arr);
+    defer test_allocator.free(arr_str);
+    const expected =
+        \\Int16 n=5
+        \\[
+        \\  1,
+        \\  null,
+        \\  100,
+        \\  null,
+        \\  10000,
+        \\]
+        \\
+    ;
+    printer.deinit();
+    try std.testing.expectEqualSlices(u8, expected, arr_str);
+}
 
 test "PrettyPrinter print record batch" {
     const rb = try csv.toRecordBatch("data/sample.csv", ',', test_allocator);
