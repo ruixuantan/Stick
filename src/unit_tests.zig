@@ -12,4 +12,6 @@ comptime {
 
     _ = @import("csv/csv.zig");
     _ = @import("pretty_print.zig");
+
+    _ = @import("compute/sum.zig");
 }

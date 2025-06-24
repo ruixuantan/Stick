@@ -64,7 +64,7 @@ pub const BufferBuilder = struct {
     pub fn finishBool(self: *BufferBuilder) !Buffer {
         std.debug.assert(self.datatype == Datatype.Bool);
         const builder_length = self.data.items.len;
-        const buffer_length = builder_length + 8 - (builder_length % 8);
+        const buffer_length = builder_length + simd.ALIGNMENT - (builder_length % simd.ALIGNMENT);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
         @memset(buffer, 0);
@@ -76,7 +76,7 @@ pub const BufferBuilder = struct {
 
     pub fn finish(self: *BufferBuilder) !Buffer {
         const builder_length = self.data.items.len;
-        const buffer_length = builder_length + 8 - (builder_length % 8);
+        const buffer_length = builder_length + simd.ALIGNMENT - (builder_length % simd.ALIGNMENT);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
         @memset(buffer, 0);
@@ -135,7 +135,7 @@ pub const BitmapBuilder = struct {
     }
 
     pub fn finish(self: *BitmapBuilder) !Bitmap {
-        while (self.data.items.len % 8 != 0) {
+        while (self.data.items.len % 64 != 0) {
             try self.data.append(0);
         }
 
@@ -159,9 +159,10 @@ test "Int32 Buffer Builder" {
 
     const buffer = try builder.finish();
     defer buffer.deinit();
-    const expect_slice = [_]u8{ 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
-    try std.testing.expectEqual(expect_slice.len, buffer.size());
-    try std.testing.expectEqualSlices(u8, &expect_slice, buffer.data);
+    try std.testing.expectEqual(64, buffer.size());
+    try std.testing.expectEqualSlices(u8, &.{ 1, 0, 0, 0 }, buffer.data[0..4]);
+    try std.testing.expectEqualSlices(u8, &.{ 2, 0, 0, 0 }, buffer.data[4..8]);
+    try std.testing.expectEqualSlices(u8, &.{ 1, 0, 0, 0 }, buffer.data[8..12]);
 }
 
 test "Bool Buffer Builder" {
@@ -173,9 +174,8 @@ test "Bool Buffer Builder" {
 
     const buffer = try builder.finishBool();
     defer buffer.deinit();
-    const expect_slice = [_]u8{ 0b10100000, 0, 0, 0, 0, 0, 0, 0 };
-    try std.testing.expectEqual(expect_slice.len, buffer.size());
-    try std.testing.expectEqualSlices(u8, &expect_slice, buffer.data);
+    try std.testing.expectEqual(64, buffer.size());
+    try std.testing.expectEqualSlices(u8, &.{0b10100000}, buffer.data[0..1]);
 }
 
 test "Bitmap builder" {
@@ -187,7 +187,7 @@ test "Bitmap builder" {
 
     const bitmap = try builder.finish();
     defer bitmap.deinit();
-    try std.testing.expectEqual(8, bitmap.size());
+    try std.testing.expectEqual(64, bitmap.size());
     try std.testing.expect(try bitmap.isValid(0));
     try std.testing.expect(!try bitmap.isValid(1));
     try std.testing.expect(try bitmap.isValid(2));
