@@ -61,7 +61,7 @@ pub const Datatype = enum {
         };
     }
 
-    pub inline fn isPrimitive(self: Datatype) bool {
+    pub inline fn isNumeric(self: Datatype) bool {
         return switch (self) {
             .Bool, .Int8, .Int16, .Int32, .Int64, .Float, .Double => true,
             else => false,

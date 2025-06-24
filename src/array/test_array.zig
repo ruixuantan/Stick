@@ -7,7 +7,7 @@ const ArraySliceBuilder = array_builder.ArraySliceBuilder;
 
 const test_allocator = std.testing.allocator;
 
-test "Primitive Int32 array" {
+test "Numeric Int32 array" {
     const slice = [_]?i32{ 3, 5, null, 7, null, 8 };
     const arr = try ArraySliceBuilder(Datatype.Int32).create(&slice, test_allocator);
     defer arr.deinit();
@@ -18,7 +18,7 @@ test "Primitive Int32 array" {
     try std.testing.expectEqual(Scalar.nullInt32(), try arr.take(4));
 }
 
-test "Primitive Bool array" {
+test "Bool array" {
     const slice = [_]?bool{ null, true, true, false };
     const arr = try ArraySliceBuilder(Datatype.Bool).create(&slice, test_allocator);
     defer arr.deinit();

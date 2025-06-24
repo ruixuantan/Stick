@@ -5,7 +5,7 @@ const Buffer = buffer.Buffer;
 const Bitmap = buffer.Bitmap;
 const Scalar = @import("../scalar.zig").Scalar;
 
-pub const PrimitiveArray = struct {
+pub const NumericArray = struct {
     datatype: Datatype,
     length: i64,
     null_count: i64,
@@ -13,12 +13,12 @@ pub const PrimitiveArray = struct {
     bitmap: Bitmap,
     allocator: std.mem.Allocator,
 
-    pub fn deinit(self: PrimitiveArray) void {
+    pub fn deinit(self: NumericArray) void {
         self.buffer.deinit();
         self.bitmap.deinit();
     }
 
-    pub fn takeUnsafe(self: PrimitiveArray, i: usize) Scalar {
+    pub fn takeUnsafe(self: NumericArray, i: usize) Scalar {
         const start = i * self.datatype.byte_width();
         return Scalar.fromBytes(self.datatype, self.buffer.data[start .. start + self.datatype.byte_width()]);
     }
@@ -83,7 +83,7 @@ pub const BinaryViewArray = struct {
 pub const Array = union(enum) {
     const ArrayError = error{IndexOutOfBounds};
 
-    primitive: PrimitiveArray,
+    numeric: NumericArray,
     boolean: BooleanArray,
     binary_view: BinaryViewArray,
 

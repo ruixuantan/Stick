@@ -59,27 +59,27 @@ const BaseArrayBuilder = struct {
     }
 };
 
-const PrimitiveArrayBuilder = struct {
+const NumericArrayBuilder = struct {
     base: BaseArrayBuilder,
 
-    pub fn init(datatype: Datatype, allocator: std.mem.Allocator) PrimitiveArrayBuilder {
-        std.debug.assert(datatype.isPrimitive());
+    pub fn init(datatype: Datatype, allocator: std.mem.Allocator) NumericArrayBuilder {
+        std.debug.assert(datatype.isNumeric());
         const base = BaseArrayBuilder.init(datatype, allocator);
         return .{ .base = base };
     }
 
-    pub fn deinit(self: PrimitiveArrayBuilder) void {
+    pub fn deinit(self: NumericArrayBuilder) void {
         self.base.deinit();
     }
 
-    pub fn appendScalar(self: *PrimitiveArrayBuilder, s: Scalar) !void {
+    pub fn appendScalar(self: *NumericArrayBuilder, s: Scalar) !void {
         try self.base.appendScalar(s);
     }
 
-    pub fn finish(self: *PrimitiveArrayBuilder) !array.Array {
+    pub fn finish(self: *NumericArrayBuilder) !array.Array {
         const finish_buffer = try self.base.buffer_builder.finish();
         const finish_bitmap = try self.base.bitmap_builder.finish();
-        return array.Array{ .primitive = array.PrimitiveArray{
+        return array.Array{ .numeric = array.NumericArray{
             .datatype = self.base.datatype,
             .length = self.base.length,
             .null_count = self.base.null_count,
@@ -187,7 +187,7 @@ const BinaryViewArrayBuilder = struct {
 };
 
 pub const ArrayBuilder = union(enum) {
-    primitive: PrimitiveArrayBuilder,
+    numeric: NumericArrayBuilder,
     boolean: BooleanArrayBuilder,
     binary_view: BinaryViewArrayBuilder,
 
@@ -195,7 +195,7 @@ pub const ArrayBuilder = union(enum) {
         return switch (dt) {
             .String => ArrayBuilder{ .binary_view = try BinaryViewArrayBuilder.init(allocator) },
             .Bool => ArrayBuilder{ .boolean = BooleanArrayBuilder.init(allocator) },
-            else => ArrayBuilder{ .primitive = PrimitiveArrayBuilder.init(dt, allocator) },
+            else => ArrayBuilder{ .numeric = NumericArrayBuilder.init(dt, allocator) },
         };
     }
 
@@ -224,7 +224,7 @@ pub const ArrayBuilder = union(enum) {
 
     pub fn datatype(self: ArrayBuilder) Datatype {
         return switch (self) {
-            .primitive => |p| p.base.datatype,
+            .numeric => |p| p.base.datatype,
             .boolean => Datatype.Bool,
             .binary_view => Datatype.String,
         };
