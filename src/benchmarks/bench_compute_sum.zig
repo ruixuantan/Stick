@@ -17,14 +17,24 @@ pub const BenchmarkComputeSum = struct {
         self.arr.deinit();
     }
 
-    fn simple(self: BenchmarkComputeSum) i64 {
+    fn simple(self: BenchmarkComputeSum) !i64 {
         const f = sum.SimpleSum(Datatype.Int32);
-        return f.sum(self.arr);
+        const start = try std.time.Instant.now();
+        const res = f.sum(self.arr);
+        const end = try std.time.Instant.now();
+        const elapsed: f64 = @floatFromInt(end.since(start));
+        std.debug.print("Time elapsed is: {d:.8}ms\n", .{elapsed / std.time.ns_per_ms});
+        return res;
     }
 
-    fn standard(self: BenchmarkComputeSum) i64 {
+    fn standard(self: BenchmarkComputeSum) !i64 {
         const f = sum.Sum(Datatype.Int32);
-        return f.sum(self.arr);
+        const start = try std.time.Instant.now();
+        const res = f.sum(self.arr);
+        const end = try std.time.Instant.now();
+        const elapsed: f64 = @floatFromInt(end.since(start));
+        std.debug.print("Time elapsed is: {d:.8}ms\n", .{elapsed / std.time.ns_per_ms});
+        return res;
     }
 
     pub fn main(t: []const u8, n: usize, allocator: std.mem.Allocator) !i64 {
@@ -32,9 +42,9 @@ pub const BenchmarkComputeSum = struct {
         defer bench.deinit();
 
         if (std.mem.eql(u8, t, "simple")) {
-            return bench.simple();
+            return try bench.simple();
         } else if (std.mem.eql(u8, t, "standard")) {
-            return bench.standard();
+            return try bench.standard();
         } else {
             @panic("Unrecognized sum type");
         }
