@@ -24,8 +24,29 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
+
+    const exe_benchmark_mod = b.createModule(.{
+        .root_source_file = b.path("src/benchmarks.zig"),
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
+
+    const exe_benchmarks = b.addExecutable(.{
+        .name = "benchmarks",
+        .root_module = exe_benchmark_mod,
+    });
+
+    b.installArtifact(exe_benchmarks);
+    const run_benchmark_cmd = b.addRunArtifact(exe_benchmarks);
+    run_benchmark_cmd.step.dependOn(b.getInstallStep());
+
+    if (b.args) |args| {
+        run_benchmark_cmd.addArgs(args);
+    }
+
+    const run_benchmark_step = b.step("bench", "Run benchmarks");
+    run_benchmark_step.dependOn(&run_benchmark_cmd.step);
 }

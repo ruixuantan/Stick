@@ -66,9 +66,9 @@ test "Sum f32 array" {
     const arr = try ArraySliceBuilder(Datatype.Float).create(&slice, test_allocator);
     defer arr.deinit();
 
-    const f = SimpleSum(Datatype.Float);
-    try std.testing.expectApproxEqAbs(10.01, f.sum(arr.numeric), 0.001);
+    const simple = SimpleSum(Datatype.Float);
+    try std.testing.expectApproxEqAbs(10.01, simple.sum(arr.numeric), 0.001);
 
-    const g = Sum(Datatype.Float);
-    try std.testing.expectApproxEqAbs(10.01, g.sum(arr.numeric), 0.001);
+    const f = Sum(Datatype.Float);
+    try std.testing.expectApproxEqAbs(10.01, f.sum(arr.numeric), 0.001);
 }
