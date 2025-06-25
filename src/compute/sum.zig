@@ -44,14 +44,14 @@ pub fn Sum(datatype: Datatype) type {
 
     const byte_width = datatype.byte_width();
     const ztype = datatype.ztype();
-    const CastSimdRegister = @Vector(simd.ALIGNMENT / byte_width, ztype);
+    const CastSimdRegister = @Vector(simd.SIMD_LENGTH / byte_width, ztype);
 
     return struct {
         pub fn sum(arr: NumericArray) T {
             var output: CastSimdRegister = @splat(0);
             var i: usize = 0;
-            while (i < arr.buffer.size()) : (i += simd.ALIGNMENT) {
-                const register: simd.SimdRegister = arr.buffer.data[i .. i + simd.ALIGNMENT][0..simd.ALIGNMENT].*;
+            while (i < arr.buffer.size()) : (i += simd.SIMD_LENGTH) {
+                const register: simd.SimdRegister = arr.buffer.data[i .. i + simd.SIMD_LENGTH][0..simd.SIMD_LENGTH].*;
                 output += @bitCast(register);
             }
             return @reduce(.Add, output);

@@ -135,7 +135,7 @@ pub const BitmapBuilder = struct {
     }
 
     pub fn finish(self: *BitmapBuilder) !Bitmap {
-        while (self.data.items.len % 64 != 0) {
+        while (self.data.items.len % simd.ALIGNMENT != 0) {
             try self.data.append(0);
         }
 
@@ -159,7 +159,7 @@ test "Int32 Buffer Builder" {
 
     const buffer = try builder.finish();
     defer buffer.deinit();
-    try std.testing.expectEqual(64, buffer.size());
+    try std.testing.expectEqual(simd.ALIGNMENT, buffer.size());
     try std.testing.expectEqualSlices(u8, &.{ 1, 0, 0, 0 }, buffer.data[0..4]);
     try std.testing.expectEqualSlices(u8, &.{ 2, 0, 0, 0 }, buffer.data[4..8]);
     try std.testing.expectEqualSlices(u8, &.{ 1, 0, 0, 0 }, buffer.data[8..12]);
@@ -174,7 +174,7 @@ test "Bool Buffer Builder" {
 
     const buffer = try builder.finishBool();
     defer buffer.deinit();
-    try std.testing.expectEqual(64, buffer.size());
+    try std.testing.expectEqual(simd.ALIGNMENT, buffer.size());
     try std.testing.expectEqualSlices(u8, &.{0b10100000}, buffer.data[0..1]);
 }
 
@@ -187,7 +187,7 @@ test "Bitmap builder" {
 
     const bitmap = try builder.finish();
     defer bitmap.deinit();
-    try std.testing.expectEqual(64, bitmap.size());
+    try std.testing.expectEqual(simd.ALIGNMENT, bitmap.size());
     try std.testing.expect(try bitmap.isValid(0));
     try std.testing.expect(!try bitmap.isValid(1));
     try std.testing.expect(try bitmap.isValid(2));

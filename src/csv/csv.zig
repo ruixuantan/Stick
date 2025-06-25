@@ -1,5 +1,4 @@
 const std = @import("std");
-const simd = @import("../simd.zig");
 const Datatype = @import("../datatype.zig").Datatype;
 const Scalar = @import("../scalar.zig").Scalar;
 const String = @import("../string.zig").String;
@@ -7,7 +6,10 @@ const ArrayBuilder = @import("../array/array_builder.zig").ArrayBuilder;
 const RecordBatch = @import("../record_batch.zig").RecordBatch;
 const RecordBatchBuilder = @import("../record_batch.zig").RecordBatchBuilder;
 
-const SimdMaskRegister = @Vector(simd.ALIGNMENT, u1);
+const SIMD_SIZE = 64;
+const CsvSimdMaskRegister = @Vector(SIMD_SIZE, u1);
+const CsvSimdRegister = @Vector(SIMD_SIZE, u8);
+const CsvAlignedBuffer = []align(SIMD_SIZE) u8;
 
 fn prefix_xor(mask: u64) u64 {
     var m = mask;
@@ -20,7 +22,7 @@ fn prefix_xor(mask: u64) u64 {
 }
 
 const CsvParser = struct {
-    buffer: simd.AlignedBuffer,
+    buffer: CsvAlignedBuffer,
     mask: std.ArrayList(usize),
     num_cols: usize,
     delimiter: u8,
@@ -43,16 +45,16 @@ const CsvParser = struct {
         self.mask.deinit();
     }
 
-    fn load_file(path: []const u8, allocator: std.mem.Allocator) !simd.AlignedBuffer {
+    fn load_file(path: []const u8, allocator: std.mem.Allocator) !CsvAlignedBuffer {
         const file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
         const file_size = (try file.stat()).size;
-        const buffer = try allocator.alignedAlloc(u8, simd.ALIGNMENT, file_size + simd.ALIGNMENT);
+        const buffer = try allocator.alignedAlloc(u8, SIMD_SIZE, file_size + SIMD_SIZE);
         _ = try file.reader().readAll(buffer);
         return buffer;
     }
 
-    fn maskToIndex(self: *CsvParser, base_idx: usize, mask: SimdMaskRegister) !void {
+    fn maskToIndex(self: *CsvParser, base_idx: usize, mask: CsvSimdMaskRegister) !void {
         var bits: u64 = @bitCast(mask);
         const count = @popCount(bits);
         var i: usize = 0;
@@ -64,23 +66,23 @@ const CsvParser = struct {
     }
 
     fn encode(self: *CsvParser) !void {
-        const quotes: simd.SimdRegister = @splat('"');
-        const lfs: simd.SimdRegister = @splat('\n');
-        const delims: simd.SimdRegister = @splat(self.delimiter);
+        const quotes: CsvSimdRegister = @splat('"');
+        const lfs: CsvSimdRegister = @splat('\n');
+        const delims: CsvSimdRegister = @splat(self.delimiter);
 
         var i: usize = 0;
-        const max_i = if (self.buffer.len < simd.ALIGNMENT) 0 else self.buffer.len - simd.ALIGNMENT;
+        const max_i = if (self.buffer.len < SIMD_SIZE) 0 else self.buffer.len - SIMD_SIZE;
 
         var mode: u64 = 0;
-        while (i < max_i) : (i += simd.ALIGNMENT) {
-            const b: simd.SimdRegister = self.buffer[i .. i + simd.ALIGNMENT][0..simd.ALIGNMENT].*;
-            var q_mask: SimdMaskRegister = @bitCast(b == quotes);
-            var d_mask: SimdMaskRegister = @bitCast(b == delims);
-            var lf_mask: SimdMaskRegister = @bitCast(b == lfs);
+        while (i < max_i) : (i += SIMD_SIZE) {
+            const b: CsvSimdRegister = self.buffer[i .. i + SIMD_SIZE][0..SIMD_SIZE].*;
+            var q_mask: CsvSimdMaskRegister = @bitCast(b == quotes);
+            var d_mask: CsvSimdMaskRegister = @bitCast(b == delims);
+            var lf_mask: CsvSimdMaskRegister = @bitCast(b == lfs);
 
             var mask: u64 = prefix_xor(@bitCast(q_mask));
             mask ^= mode;
-            mode = @bitCast(-%@as(i64, @bitCast(mask >> (simd.ALIGNMENT - 1))));
+            mode = @bitCast(-%@as(i64, @bitCast(mask >> (SIMD_SIZE - 1))));
             q_mask = @bitCast(mask);
 
             lf_mask &= ~q_mask;
