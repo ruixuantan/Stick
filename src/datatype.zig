@@ -7,6 +7,10 @@ pub const Datatype = enum {
     Int16,
     Int32,
     Int64,
+    Uint8,
+    Uint16,
+    Uint32,
+    Uint64,
     Float,
     Double,
     String,
@@ -18,6 +22,10 @@ pub const Datatype = enum {
             .Int16 => @bitSizeOf(i16),
             .Int32 => @bitSizeOf(i32),
             .Int64 => @bitSizeOf(i64),
+            .Uint8 => @bitSizeOf(u8),
+            .Uint16 => @bitSizeOf(u16),
+            .Uint32 => @bitSizeOf(u32),
+            .Uint64 => @bitSizeOf(u64),
             .Float => @bitSizeOf(f32),
             .Double => @bitSizeOf(f64),
             .String => string.StringBitSize,
@@ -31,6 +39,10 @@ pub const Datatype = enum {
             .Int16 => "Int16",
             .Int32 => "Int32",
             .Int64 => "Int64",
+            .Uint8 => "Uint8",
+            .Uint16 => "Uint16",
+            .Uint32 => "Uint32",
+            .Uint64 => "Uint64",
             .Float => "Float",
             .Double => "Double",
             .String => "String",
@@ -48,6 +60,10 @@ pub const Datatype = enum {
             .Int16 => i16,
             .Int32 => i32,
             .Int64 => i64,
+            .Uint8 => u8,
+            .Uint16 => u16,
+            .Uint32 => u32,
+            .Uint64 => u64,
             .Float => f32,
             .Double => f64,
             .String => []const u8,
@@ -63,7 +79,7 @@ pub const Datatype = enum {
 
     pub inline fn isNumeric(self: Datatype) bool {
         return switch (self) {
-            .Bool, .Int8, .Int16, .Int32, .Int64, .Float, .Double => true,
+            .Int8, .Int16, .Int32, .Int64, .Uint8, .Uint16, .Uint32, .Uint64, .Float, .Double => true,
             else => false,
         };
     }

@@ -70,6 +70,10 @@ const Int8Scalar = BaseScalar(Datatype.Int8);
 const Int16Scalar = BaseScalar(Datatype.Int16);
 const Int32Scalar = BaseScalar(Datatype.Int32);
 const Int64Scalar = BaseScalar(Datatype.Int64);
+const Uint8Scalar = BaseScalar(Datatype.Uint8);
+const Uint16Scalar = BaseScalar(Datatype.Uint16);
+const Uint32Scalar = BaseScalar(Datatype.Uint32);
+const Uint64Scalar = BaseScalar(Datatype.Uint64);
 const FloatScalar = BaseScalar(Datatype.Float);
 const DoubleScalar = BaseScalar(Datatype.Double);
 
@@ -79,6 +83,10 @@ pub const Scalar = union(enum) {
     int16: Int16Scalar,
     int32: Int32Scalar,
     int64: Int64Scalar,
+    uint8: Uint8Scalar,
+    uint16: Uint16Scalar,
+    uint32: Uint32Scalar,
+    uint64: Uint64Scalar,
     float: FloatScalar,
     double: DoubleScalar,
     string: StringScalar,
@@ -163,6 +171,70 @@ pub const Scalar = union(enum) {
         }
     }
 
+    pub fn fromUint8(value: u8) Scalar {
+        return Scalar{ .uint8 = Uint8Scalar.init(value) };
+    }
+
+    pub fn nullUint8() Scalar {
+        return Scalar{ .uint8 = Uint8Scalar.initNull() };
+    }
+
+    pub fn fromNullableUint8(value: ?u8) Scalar {
+        if (value) |v| {
+            return Scalar.fromUint8(v);
+        } else {
+            return Scalar.nullUint8();
+        }
+    }
+
+    pub fn fromUint16(value: u16) Scalar {
+        return Scalar{ .uint16 = Uint16Scalar.init(value) };
+    }
+
+    pub fn nullUint16() Scalar {
+        return Scalar{ .uint16 = Uint16Scalar.initNull() };
+    }
+
+    pub fn fromNullableUint16(value: ?u16) Scalar {
+        if (value) |v| {
+            return Scalar.fromUint16(v);
+        } else {
+            return Scalar.nullUint16();
+        }
+    }
+
+    pub fn fromUint32(value: u32) Scalar {
+        return Scalar{ .uint32 = Uint32Scalar.init(value) };
+    }
+
+    pub fn nullUint32() Scalar {
+        return Scalar{ .uint32 = Uint32Scalar.initNull() };
+    }
+
+    pub fn fromNullableUint32(value: ?u32) Scalar {
+        if (value) |v| {
+            return Scalar.fromUint32(v);
+        } else {
+            return Scalar.nullUint32();
+        }
+    }
+
+    pub fn fromUint64(value: u64) Scalar {
+        return Scalar{ .uint64 = Uint64Scalar.init(value) };
+    }
+
+    pub fn nullUint64() Scalar {
+        return Scalar{ .uint64 = Uint64Scalar.initNull() };
+    }
+
+    pub fn fromNullableUint64(value: ?u64) Scalar {
+        if (value) |v| {
+            return Scalar.fromUint64(v);
+        } else {
+            return Scalar.nullUint64();
+        }
+    }
+
     pub fn fromFloat(value: f32) Scalar {
         return Scalar{ .float = FloatScalar.init(value) };
     }
@@ -218,6 +290,10 @@ pub const Scalar = union(enum) {
             .Int16 => Scalar.fromNullableInt16(raw),
             .Int32 => Scalar.fromNullableInt32(raw),
             .Int64 => Scalar.fromNullableInt64(raw),
+            .Uint8 => Scalar.fromNullableUint8(raw),
+            .Uint16 => Scalar.fromNullableUint16(raw),
+            .Uint32 => Scalar.fromNullableUint32(raw),
+            .Uint64 => Scalar.fromNullableUint64(raw),
             .Float => Scalar.fromNullableFloat(raw),
             .Double => Scalar.fromNullableDouble(raw),
             .String => Scalar.fromNullableString(raw),
@@ -244,6 +320,10 @@ pub const Scalar = union(enum) {
             .Int16 => Scalar{ .int16 = Int16Scalar.fromBytes(bytes) },
             .Int32 => Scalar{ .int32 = Int32Scalar.fromBytes(bytes) },
             .Int64 => Scalar{ .int64 = Int64Scalar.fromBytes(bytes) },
+            .Uint8 => Scalar{ .uint8 = Uint8Scalar.fromBytes(bytes) },
+            .Uint16 => Scalar{ .uint16 = Uint16Scalar.fromBytes(bytes) },
+            .Uint32 => Scalar{ .uint32 = Uint32Scalar.fromBytes(bytes) },
+            .Uint64 => Scalar{ .uint64 = Uint64Scalar.fromBytes(bytes) },
             .Float => Scalar{ .float = FloatScalar.fromBytes(bytes) },
             .Double => Scalar{ .double = DoubleScalar.fromBytes(bytes) },
             .String => Scalar{ .string = StringScalar.fromBytes(bytes) },
@@ -260,6 +340,10 @@ pub const Scalar = union(enum) {
             .int16 => try std.fmt.bufPrint(buf, "{d}", .{self.int16.value}),
             .int32 => try std.fmt.bufPrint(buf, "{d}", .{self.int32.value}),
             .int64 => try std.fmt.bufPrint(buf, "{d}", .{self.int64.value}),
+            .uint8 => try std.fmt.bufPrint(buf, "{d}", .{self.uint8.value}),
+            .uint16 => try std.fmt.bufPrint(buf, "{d}", .{self.uint16.value}),
+            .uint32 => try std.fmt.bufPrint(buf, "{d}", .{self.uint32.value}),
+            .uint64 => try std.fmt.bufPrint(buf, "{d}", .{self.uint64.value}),
             .float => try std.fmt.bufPrint(buf, "{d}", .{self.float.value}),
             .double => try std.fmt.bufPrint(buf, "{d}", .{self.double.value}),
             .string => try self.string.toString(buf),

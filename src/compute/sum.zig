@@ -9,6 +9,7 @@ pub fn SimpleSum(datatype: Datatype) type {
     const T = switch (datatype) {
         .Double, .Float => f64,
         .Int8, .Int16, .Int32, .Int64 => i64,
+        .Uint8, .Uint16, .Uint32, .Uint64 => u64,
         else => unreachable,
     };
 
@@ -19,7 +20,7 @@ pub fn SimpleSum(datatype: Datatype) type {
         inline fn cast(bytes: []u8) T {
             return switch (datatype) {
                 .Double, .Float => @floatCast(std.mem.bytesAsValue(ztype, bytes).*),
-                .Int8, .Int16, .Int32, .Int64 => @intCast(std.mem.bytesAsValue(ztype, bytes).*),
+                .Int8, .Int16, .Int32, .Int64, .Uint8, .Uint16, .Uint32, .Uint64 => @intCast(std.mem.bytesAsValue(ztype, bytes).*),
                 else => unreachable,
             };
         }
@@ -39,6 +40,7 @@ pub fn Sum(datatype: Datatype) type {
     const T = switch (datatype) {
         .Double, .Float => f64,
         .Int8, .Int16, .Int32, .Int64 => i64,
+        .Uint8, .Uint16, .Uint32, .Uint64 => u64,
         else => unreachable,
     };
 
