@@ -40,7 +40,6 @@ pub const BenchmarkComputeSum = struct {
     pub fn main(t: []const u8, n: usize, allocator: std.mem.Allocator) !i64 {
         const bench = try BenchmarkComputeSum.init(n, allocator);
         defer bench.deinit();
-
         if (std.mem.eql(u8, t, "simple")) {
             return try bench.simple();
         } else if (std.mem.eql(u8, t, "standard")) {

@@ -12,6 +12,6 @@ docker build . -t stick
 
 run:
 ```sh
-docker run --rm -it stick
+docker run --rm -it --security-opt seccomp=seccomp/conf.json stick
 ```
 
