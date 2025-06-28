@@ -1,8 +1,8 @@
 const std = @import("std");
-const BenchmarkComputeSum = @import("benchmarks/bench_compute_sum.zig").BenchmarkComputeSum;
+const BenchmarkComputeAggregate = @import("benchmarks/bench_compute_aggregate.zig").BenchmarkComputeAggregate;
 
 // Sample command for benchmarking:
-// hyperfine --warmup 3 --runs 5 'zig build bench -- simple 10000000' 'zig build bench -- standard 10000000'
+// hyperfine --warmup 3 --runs 5 'zig build bench -- sum 10000000' 'zig build bench -- nsum 10000000'
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -11,7 +11,7 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    const res = try BenchmarkComputeSum.main(
+    const res = try BenchmarkComputeAggregate.main(
         args[1],
         try std.fmt.parseInt(usize, args[2], 10),
         allocator,
