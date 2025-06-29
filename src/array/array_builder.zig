@@ -50,6 +50,12 @@ const BaseArrayBuilder = struct {
         try self.bitmap_builder.appendValid();
     }
 
+    fn appendValidBytes(self: *BaseArrayBuilder, bytes: []const u8) !void {
+        self.length += 1;
+        try self.buffer_builder.appendBytes(bytes);
+        try self.bitmap_builder.appendValid();
+    }
+
     fn appendScalar(self: *BaseArrayBuilder, s: Scalar) !void {
         if (s.isValid()) {
             try self.append(s);
@@ -74,6 +80,10 @@ const NumericArrayBuilder = struct {
 
     pub fn appendScalar(self: *NumericArrayBuilder, s: Scalar) !void {
         try self.base.appendScalar(s);
+    }
+
+    pub fn appendValidBytes(self: *NumericArrayBuilder, bytes: []const u8) !void {
+        try self.base.appendValidBytes(bytes);
     }
 
     pub fn finish(self: *NumericArrayBuilder) !array.Array {
@@ -104,6 +114,10 @@ const BooleanArrayBuilder = struct {
 
     pub fn appendScalar(self: *BooleanArrayBuilder, s: Scalar) !void {
         try self.base.appendScalar(s);
+    }
+
+    pub fn appendValidBytes(self: *BooleanArrayBuilder, bytes: []const u8) !void {
+        try self.base.appendValidBytes(bytes);
     }
 
     pub fn finish(self: *BooleanArrayBuilder) !array.Array {
@@ -168,6 +182,10 @@ const BinaryViewArrayBuilder = struct {
         }
     }
 
+    pub fn appendValidBytes(self: *BinaryViewArrayBuilder, bytes: []const u8) !void {
+        try self.base.appendValidBytes(bytes);
+    }
+
     pub fn finish(self: *BinaryViewArrayBuilder) !array.Array {
         const finish_view_buffer = try self.base.buffer_builder.finish();
         const finish_bitmap = try self.base.bitmap_builder.finish();
@@ -208,6 +226,12 @@ pub const ArrayBuilder = union(enum) {
     pub fn appendScalar(self: *ArrayBuilder, s: Scalar) !void {
         switch (self.*) {
             inline else => |*b| try b.appendScalar(s),
+        }
+    }
+
+    pub fn appendValidBytes(self: *ArrayBuilder, bytes: []const u8) !void {
+        switch (self.*) {
+            inline else => |*b| try b.appendValidBytes(bytes),
         }
     }
 

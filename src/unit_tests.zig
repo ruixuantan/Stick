@@ -15,4 +15,5 @@ comptime {
     _ = @import("pretty_print.zig");
 
     _ = @import("compute/aggregate.zig");
+    _ = @import("compute/coalesce.zig");
 }

@@ -9,25 +9,33 @@ pub const Iterator = struct {
         validity: u64,
         values: []u8,
     };
-    const validity_chunk_size = simd.ALIGNMENT >> 3;
+    const v_chunk_size = simd.ALIGNMENT >> 3;
 
     arr: Array,
+    byte_width: usize,
+    buffer_len: usize,
     i: usize,
 
     pub fn init(arr: Array) Iterator {
-        return .{ .arr = arr, .i = 0 };
+        return .{
+            .arr = arr,
+            .byte_width = arr.datatype().byte_width(),
+            .buffer_len = arr.buffer().data.len,
+            .i = 0,
+        };
     }
 
     pub fn next(self: *Iterator) ?Chunk {
         if (self.i >= self.arr.length()) {
             return null;
-        } else {
-            const v_i = self.i >> 3;
-            const validity: u64 = @bitCast(self.arr.bitmap().data[v_i .. v_i + validity_chunk_size][0..validity_chunk_size].*);
-            const values = self.arr.buffer().data[self.i .. self.i + simd.ALIGNMENT];
-            self.i += simd.ALIGNMENT;
-            return .{ .validity = validity, .values = values };
         }
+        const v_i = self.i >> 3;
+        const validity: u64 = @bitCast(self.arr.bitmap().data[v_i .. v_i + v_chunk_size][0..v_chunk_size].*);
+        const start = self.i * self.byte_width;
+        const end = @min(self.buffer_len, (self.i + simd.ALIGNMENT) * self.byte_width);
+        const values = self.arr.buffer().data[start..end];
+        self.i += simd.ALIGNMENT;
+        return .{ .validity = validity, .values = values };
     }
 
     pub fn reset(self: *Iterator) void {
@@ -54,6 +62,7 @@ test "Iterator over Uint16 array of length 70" {
     slice[68] = 68;
     slice[69] = null;
 
+    const byte_width = Datatype.Uint16.byte_width();
     const arr = try ArraySliceBuilder(Datatype.Uint16).create(slice, test_allocator);
     defer arr.deinit();
     var itr = Iterator.init(arr);
@@ -64,4 +73,11 @@ test "Iterator over Uint16 array of length 70" {
     try std.testing.expectEqual(12297829382473034410, chunk_1.validity); // equivalent to 0b101010...
     try std.testing.expectEqual(0b010010, chunk_2.validity);
     try std.testing.expectEqual(null, chunk_3);
+
+    try std.testing.expectEqual(simd.ALIGNMENT * byte_width, chunk_1.values.len);
+
+    const chunk_1_value_61: u16 = @bitCast(chunk_1.values[61 * byte_width .. 62 * byte_width][0..byte_width].*);
+    try std.testing.expectEqual(61, chunk_1_value_61);
+    const chunk_2_value_68: u16 = @bitCast(chunk_2.values[4 * byte_width .. 5 * byte_width][0..byte_width].*);
+    try std.testing.expectEqual(68, chunk_2_value_68);
 }

@@ -64,6 +64,18 @@ pub const BinaryViewArray = struct {
         self.allocator.free(self.binary_buffers);
     }
 
+    pub fn cloneBinaryBuffers(self: *BinaryViewArray, from: BinaryViewArray) !void {
+        for (self.binary_buffers) |b| {
+            b.deinit();
+        }
+        self.allocator.free(self.binary_buffers);
+        var binary_buffers = try self.allocator.alloc(Buffer, from.binary_buffers.len);
+        for (from.binary_buffers, 0..) |b, i| {
+            binary_buffers[i] = try b.clone();
+        }
+        self.binary_buffers = binary_buffers;
+    }
+
     pub fn takeUnsafe(self: BinaryViewArray, i: usize) Scalar {
         const start = i * self.datatype.byte_width();
         var s = Scalar.fromBytes(
@@ -75,6 +87,10 @@ pub const BinaryViewArray = struct {
             const offset = s.string.base.value.long.buf_offset;
             const length = s.string.base.value.long.length;
             s.string.view = self.binary_buffers[index].data[offset .. offset + length];
+        } else {
+            const data = s.string.base.value.short.data;
+            const length = s.string.base.value.short.length;
+            s.string.view = std.mem.toBytes(data)[0..length];
         }
         return s;
     }
@@ -93,9 +109,23 @@ pub const Array = union(enum) {
         }
     }
 
+    pub fn isBoolean(self: Array) bool {
+        return switch (self) {
+            .boolean => true,
+            else => false,
+        };
+    }
+
     pub fn isNumeric(self: Array) bool {
         return switch (self) {
             .numeric => true,
+            else => false,
+        };
+    }
+
+    pub fn isBinaryView(self: Array) bool {
+        return switch (self) {
+            .binary_view => true,
             else => false,
         };
     }

@@ -7,8 +7,6 @@ const Datatype = @import("../datatype.zig").Datatype;
 const Iterator = @import("../array/iterator.zig").Iterator;
 const Scalar = @import("../scalar.zig").Scalar;
 
-const AggregateOptions = enum { Mul, Min, Max };
-
 pub fn Aggregate(datatype: Datatype) type {
     const T = switch (datatype) {
         .Double, .Float => .Double,
@@ -45,15 +43,15 @@ pub fn Aggregate(datatype: Datatype) type {
             while (itr.next()) |chunk| {
                 const validity_chunk = chunk.validity;
                 const value_chunk = chunk.values;
-                var j: usize = 0;
+                var i: usize = 0;
                 var bit: u64 = 1;
-                while (j < simd.ALIGNMENT) : (j += simd.SIMD_LENGTH) {
+                while (i < simd.ALIGNMENT) : (i += simd.SIMD_LENGTH) {
                     var validity: BitRegister = undefined;
                     inline for (0..register_length) |k| {
                         validity[k] = (bit & validity_chunk) != 0;
                         bit <<= 1;
                     }
-                    const data: Register = @bitCast(value_chunk[j .. j + simd.SIMD_LENGTH][0..simd.SIMD_LENGTH].*);
+                    const data: Register = @bitCast(value_chunk[i .. i + simd.SIMD_LENGTH][0..simd.SIMD_LENGTH].*);
                     const intermediate = @select(ztype, validity, data, id);
                     output = switch (op) {
                         .Max => @max(output, intermediate),

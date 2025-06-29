@@ -15,6 +15,12 @@ pub const Buffer = struct {
     pub fn size(self: Buffer) usize {
         return self.data.len;
     }
+
+    pub fn clone(self: Buffer) !Buffer {
+        const data = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, self.data.len);
+        @memcpy(data, self.data);
+        return .{ .data = data, .allocator = self.allocator };
+    }
 };
 
 pub const Bitmap = struct {
@@ -61,12 +67,18 @@ pub const BufferBuilder = struct {
         try self.data.appendSlice(buf[0..self.datatype.byte_width()]);
     }
 
+    pub fn appendBytes(self: *BufferBuilder, bytes: []const u8) !void {
+        std.debug.assert(bytes.len == self.datatype.byte_width());
+        try self.data.appendSlice(bytes);
+    }
+
     pub fn finishBool(self: *BufferBuilder) !Buffer {
         std.debug.assert(self.datatype == Datatype.Bool);
         const builder_length = self.data.items.len;
         const buffer_length = builder_length + simd.ALIGNMENT - (builder_length % simd.ALIGNMENT);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
+        @memset(buffer, 0);
         for (self.data.items, 0..) |item, i| {
             buffer[i >> 3] |= item << @intCast(7 - (i % 8));
         }
