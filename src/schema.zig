@@ -21,7 +21,7 @@ pub const Schema = struct {
         self.fields.deinit();
     }
 
-    fn contains_duplicates(self: Schema, name: []const u8) bool {
+    fn containsDuplicates(self: Schema, name: []const u8) bool {
         for (self.fields.items) |field| {
             if (std.mem.eql(u8, field.name, name)) {
                 return true;
@@ -31,7 +31,7 @@ pub const Schema = struct {
     }
 
     pub fn add(self: *Schema, name: []const u8, datatype: Datatype) !void {
-        if (self.contains_duplicates(name)) {
+        if (self.containsDuplicates(name)) {
             return SchemaError.SchemaFieldAlreadyExists;
         }
         const field = Field{ .name = try self.allocator.dupe(u8, name), .datatype = datatype };

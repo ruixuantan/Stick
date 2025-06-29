@@ -15,7 +15,7 @@ pub fn Aggregate(datatype: Datatype) type {
         else => unreachable,
     };
 
-    const byte_width = datatype.byte_width();
+    const byte_width = datatype.byteWidth();
     const ztype = datatype.ztype();
     const register_length = simd.SIMD_LENGTH / byte_width;
     const Register = @Vector(register_length, ztype);
@@ -26,14 +26,14 @@ pub fn Aggregate(datatype: Datatype) type {
         const Self = @This();
 
         pub fn cnt(arr: Array) Scalar {
-            return Scalar.fromInt64(arr.length() - arr.null_count());
+            return Scalar.fromInt64(arr.length() - arr.nullCount());
         }
 
         inline fn aggregate(arr: Array, id: Register, op: std.builtin.ReduceOp) !Scalar {
             if (!arr.isNumeric()) {
                 return AggregateError.ArrayIsNotNumeric;
             }
-            if (arr.length() == arr.null_count()) {
+            if (arr.length() == arr.nullCount()) {
                 return Scalar.parse(T, null);
             }
 

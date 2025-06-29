@@ -289,7 +289,7 @@ test "Int32 Array Builder" {
     defer arr.deinit();
 
     try std.testing.expectEqual(4, arr.length());
-    try std.testing.expectEqual(1, arr.null_count());
+    try std.testing.expectEqual(1, arr.nullCount());
     try std.testing.expect(try arr.isValid(0));
     try std.testing.expect(try arr.isValid(1));
     try std.testing.expect(!try arr.isValid(2));
@@ -308,7 +308,7 @@ test "Bool Array Builder" {
     defer arr.deinit();
 
     try std.testing.expectEqual(3, arr.length());
-    try std.testing.expectEqual(1, arr.null_count());
+    try std.testing.expectEqual(1, arr.nullCount());
     try std.testing.expect(!try arr.isValid(0));
     try std.testing.expect(try arr.isValid(1));
     try std.testing.expect(try arr.isValid(2));
@@ -341,7 +341,7 @@ test "String Array Builder" {
 
     try std.testing.expectEqual(1, builder.binary_view.curr_buffer_index);
     try std.testing.expectEqual(5, arr.length());
-    try std.testing.expectEqual(1, arr.null_count());
+    try std.testing.expectEqual(1, arr.nullCount());
     try std.testing.expect(!try arr.isValid(0));
     try std.testing.expect(try arr.isValid(1));
     try std.testing.expect(try arr.isValid(2));
@@ -355,5 +355,5 @@ test "ArraySliceBuilder creation" {
     defer arr.deinit();
 
     try std.testing.expectEqual(6, arr.length());
-    try std.testing.expectEqual(2, arr.null_count());
+    try std.testing.expectEqual(2, arr.nullCount());
 }

@@ -23,7 +23,7 @@ fn BaseScalar(datatype: Datatype) type {
         }
 
         pub fn toBytes(self: Self, buf: []u8) void {
-            @memcpy(buf[0..datatype.byte_width()], &std.mem.toBytes(self.value));
+            @memcpy(buf[0..datatype.byteWidth()], &std.mem.toBytes(self.value));
         }
 
         pub fn fromBytes(bytes: []const u8) Self {

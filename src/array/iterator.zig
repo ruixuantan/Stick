@@ -19,7 +19,7 @@ pub const Iterator = struct {
     pub fn init(arr: Array) Iterator {
         return .{
             .arr = arr,
-            .byte_width = arr.datatype().byte_width(),
+            .byte_width = arr.datatype().byteWidth(),
             .buffer_len = arr.buffer().data.len,
             .i = 0,
         };
@@ -62,7 +62,7 @@ test "Iterator over Uint16 array of length 70" {
     slice[68] = 68;
     slice[69] = null;
 
-    const byte_width = Datatype.Uint16.byte_width();
+    const byte_width = Datatype.Uint16.byteWidth();
     const arr = try ArraySliceBuilder(Datatype.Uint16).create(slice, test_allocator);
     defer arr.deinit();
     var itr = Iterator.init(arr);

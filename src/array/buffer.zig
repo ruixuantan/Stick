@@ -56,7 +56,7 @@ pub const BufferBuilder = struct {
     }
 
     pub fn appendNull(self: *BufferBuilder) !void {
-        for (0..self.datatype.byte_width()) |_| {
+        for (0..self.datatype.byteWidth()) |_| {
             try self.data.append(0);
         }
     }
@@ -64,11 +64,11 @@ pub const BufferBuilder = struct {
     pub fn append(self: *BufferBuilder, s: Scalar) !void {
         var buf: scalar.ScalarByteBuf = undefined;
         s.toBytes(&buf);
-        try self.data.appendSlice(buf[0..self.datatype.byte_width()]);
+        try self.data.appendSlice(buf[0..self.datatype.byteWidth()]);
     }
 
     pub fn appendBytes(self: *BufferBuilder, bytes: []const u8) !void {
-        std.debug.assert(bytes.len == self.datatype.byte_width());
+        std.debug.assert(bytes.len == self.datatype.byteWidth());
         try self.data.appendSlice(bytes);
     }
 

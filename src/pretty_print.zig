@@ -115,7 +115,7 @@ pub const PrettyPrinter = struct {
         try self.builder.appendSlice("[\n");
         for (0..@intCast(arr.length())) |i| {
             try self.builder.appendSlice("  ");
-            const s = try arr.take(i);
+            const s = try arr.get(i);
             const str = try s.toString(&buf);
             try self.builder.appendSlice(str);
             try self.builder.append(',');
@@ -153,7 +153,7 @@ pub const PrettyPrinter = struct {
 
         for (record_batch.arrays, 0..) |arr, i| {
             for (0..@intCast(record_batch.num_rows)) |j| {
-                const s = try arr.take(j);
+                const s = try arr.get(j);
                 const bufStr = try s.toString(&buf);
                 const str = try self.buffer.append(bufStr);
                 try str_rb.items[i].append(str);

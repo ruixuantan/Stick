@@ -13,9 +13,9 @@ test "Numeric Int32 array" {
     defer arr.deinit();
 
     try std.testing.expectEqual(6, arr.length());
-    try std.testing.expectEqual(2, arr.null_count());
-    try std.testing.expectEqual(5, (try arr.take(1)).int32.value);
-    try std.testing.expectEqual(Scalar.nullInt32(), try arr.take(4));
+    try std.testing.expectEqual(2, arr.nullCount());
+    try std.testing.expectEqual(5, (try arr.get(1)).int32.value);
+    try std.testing.expectEqual(Scalar.nullInt32(), try arr.get(4));
 }
 
 test "Bool array" {
@@ -24,10 +24,10 @@ test "Bool array" {
     defer arr.deinit();
 
     try std.testing.expectEqual(4, arr.length());
-    try std.testing.expectEqual(1, arr.null_count());
-    try std.testing.expectEqual(true, (try arr.take(1)).bool.value);
-    try std.testing.expectEqual(false, (try arr.take(3)).bool.value);
-    try std.testing.expectEqual(Scalar.nullBool(), try arr.take(0));
+    try std.testing.expectEqual(1, arr.nullCount());
+    try std.testing.expectEqual(true, (try arr.get(1)).bool.value);
+    try std.testing.expectEqual(false, (try arr.get(3)).bool.value);
+    try std.testing.expectEqual(Scalar.nullBool(), try arr.get(0));
 }
 
 test "BinaryView String array" {
@@ -36,7 +36,7 @@ test "BinaryView String array" {
     defer arr.deinit();
 
     try std.testing.expectEqual(4, arr.length());
-    try std.testing.expectEqual(1, arr.null_count());
-    try std.testing.expectEqual(String.init("ccc"), (try arr.take(3)).string.base.value);
-    try std.testing.expectEqual(Scalar.nullString(), try arr.take(2));
+    try std.testing.expectEqual(1, arr.nullCount());
+    try std.testing.expectEqual(String.init("ccc"), (try arr.get(3)).string.base.value);
+    try std.testing.expectEqual(Scalar.nullString(), try arr.get(2));
 }

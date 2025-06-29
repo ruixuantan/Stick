@@ -59,7 +59,7 @@ pub const Coalesce = struct {
         var builder = try ArrayBuilder.init(arr.datatype(), self.allocator);
         defer builder.deinit();
         var itr = Iterator.init(arr);
-        const byte_width = arr.datatype().byte_width();
+        const byte_width = arr.datatype().byteWidth();
         var output: Array = undefined;
         if (arr.isBoolean()) {
             output = try dropBooleanNull(&builder, &itr);
@@ -80,12 +80,12 @@ test "dropNull on Boolean array" {
     const new_arr = try coalescor.dropNull(arr);
     defer new_arr.deinit();
 
-    try std.testing.expectEqual(true, (try new_arr.take(0)).bool.value);
-    try std.testing.expectEqual(true, (try new_arr.take(1)).bool.value);
-    try std.testing.expectEqual(false, (try new_arr.take(2)).bool.value);
-    try std.testing.expectEqual(true, (try new_arr.take(3)).bool.value);
+    try std.testing.expectEqual(true, (try new_arr.get(0)).bool.value);
+    try std.testing.expectEqual(true, (try new_arr.get(1)).bool.value);
+    try std.testing.expectEqual(false, (try new_arr.get(2)).bool.value);
+    try std.testing.expectEqual(true, (try new_arr.get(3)).bool.value);
     try std.testing.expectEqual(4, new_arr.length());
-    try std.testing.expectEqual(0, new_arr.null_count());
+    try std.testing.expectEqual(0, new_arr.nullCount());
 }
 
 test "dropNull on Uint16 array" {
@@ -96,12 +96,12 @@ test "dropNull on Uint16 array" {
     const new_arr = try coalescor.dropNull(arr);
     defer new_arr.deinit();
 
-    try std.testing.expectEqual(0, (try new_arr.take(0)).uint16.value);
-    try std.testing.expectEqual(1, (try new_arr.take(1)).uint16.value);
-    try std.testing.expectEqual(2, (try new_arr.take(2)).uint16.value);
-    try std.testing.expectEqual(3, (try new_arr.take(3)).uint16.value);
+    try std.testing.expectEqual(0, (try new_arr.get(0)).uint16.value);
+    try std.testing.expectEqual(1, (try new_arr.get(1)).uint16.value);
+    try std.testing.expectEqual(2, (try new_arr.get(2)).uint16.value);
+    try std.testing.expectEqual(3, (try new_arr.get(3)).uint16.value);
     try std.testing.expectEqual(4, new_arr.length());
-    try std.testing.expectEqual(0, new_arr.null_count());
+    try std.testing.expectEqual(0, new_arr.nullCount());
 }
 
 test "dropNull on BinaryView array" {
@@ -112,9 +112,9 @@ test "dropNull on BinaryView array" {
     const new_arr = try coalescor.dropNull(arr);
     defer new_arr.deinit();
 
-    try std.testing.expectEqualSlices(u8, "one", (try new_arr.take(0)).string.view);
-    try std.testing.expectEqualSlices(u8, "twotwotwotwotwo", (try new_arr.take(1)).string.view);
-    try std.testing.expectEqualSlices(u8, "3", (try new_arr.take(2)).string.view);
+    try std.testing.expectEqualSlices(u8, "one", (try new_arr.get(0)).string.view);
+    try std.testing.expectEqualSlices(u8, "twotwotwotwotwo", (try new_arr.get(1)).string.view);
+    try std.testing.expectEqualSlices(u8, "3", (try new_arr.get(2)).string.view);
     try std.testing.expectEqual(3, new_arr.length());
-    try std.testing.expectEqual(0, new_arr.null_count());
+    try std.testing.expectEqual(0, new_arr.nullCount());
 }

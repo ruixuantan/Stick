@@ -15,7 +15,7 @@ pub const Datatype = enum {
     Double,
     String,
 
-    pub inline fn bit_width(self: Datatype) usize {
+    pub inline fn bitWidth(self: Datatype) usize {
         return switch (self) {
             .Bool => 1,
             .Int8 => @bitSizeOf(i8),
@@ -49,8 +49,8 @@ pub const Datatype = enum {
         };
     }
 
-    pub inline fn byte_width(self: Datatype) usize {
-        return @max(self.bit_width() >> 3, 1);
+    pub inline fn byteWidth(self: Datatype) usize {
+        return @max(self.bitWidth() >> 3, 1);
     }
 
     pub inline fn ztype(self: Datatype) type {

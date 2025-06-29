@@ -18,9 +18,9 @@ pub const NumericArray = struct {
         self.bitmap.deinit();
     }
 
-    pub fn takeUnsafe(self: NumericArray, i: usize) Scalar {
-        const start = i * self.datatype.byte_width();
-        return Scalar.fromBytes(self.datatype, self.buffer.data[start .. start + self.datatype.byte_width()]);
+    pub fn getUnsafe(self: NumericArray, i: usize) Scalar {
+        const start = i * self.datatype.byteWidth();
+        return Scalar.fromBytes(self.datatype, self.buffer.data[start .. start + self.datatype.byteWidth()]);
     }
 };
 
@@ -37,7 +37,7 @@ pub const BooleanArray = struct {
         self.bitmap.deinit();
     }
 
-    pub fn takeUnsafe(self: BooleanArray, i: usize) Scalar {
+    pub fn getUnsafe(self: BooleanArray, i: usize) Scalar {
         return Scalar.fromBytes(
             self.datatype,
             &.{@popCount(self.buffer.data[i >> 3] & (@as(u8, 0b1000_0000) >> @intCast(i % 8)))},
@@ -76,11 +76,11 @@ pub const BinaryViewArray = struct {
         self.binary_buffers = binary_buffers;
     }
 
-    pub fn takeUnsafe(self: BinaryViewArray, i: usize) Scalar {
-        const start = i * self.datatype.byte_width();
+    pub fn getUnsafe(self: BinaryViewArray, i: usize) Scalar {
+        const start = i * self.datatype.byteWidth();
         var s = Scalar.fromBytes(
             self.datatype,
-            self.buffer.data[start .. start + self.datatype.byte_width()],
+            self.buffer.data[start .. start + self.datatype.byteWidth()],
         );
         if (s.string.base.value.isLong()) {
             const index = s.string.base.value.long.buf_index;
@@ -141,7 +141,7 @@ pub const Array = union(enum) {
         };
     }
 
-    pub fn null_count(self: Array) i64 {
+    pub fn nullCount(self: Array) i64 {
         return switch (self) {
             inline else => |arr| arr.null_count,
         };
@@ -171,12 +171,13 @@ pub const Array = union(enum) {
         };
     }
 
-    pub fn take(self: Array, i: usize) !Scalar {
+    pub fn get(self: Array, i: usize) !Scalar {
+        // for debug purposes
         if (!try self.isValid(i)) {
             return Scalar.parse(self.datatype(), null);
         }
         return switch (self) {
-            inline else => |arr| arr.takeUnsafe(i),
+            inline else => |arr| arr.getUnsafe(i),
         };
     }
 };
