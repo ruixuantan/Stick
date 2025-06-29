@@ -67,7 +67,6 @@ pub const BufferBuilder = struct {
         const buffer_length = builder_length + simd.ALIGNMENT - (builder_length % simd.ALIGNMENT);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
-        @memset(buffer, 0);
         for (self.data.items, 0..) |item, i| {
             buffer[i >> 3] |= item << @intCast(7 - (i % 8));
         }
@@ -79,7 +78,6 @@ pub const BufferBuilder = struct {
         const buffer_length = builder_length + simd.ALIGNMENT - (builder_length % simd.ALIGNMENT);
 
         const buffer = try self.allocator.alignedAlloc(u8, simd.ALIGNMENT, buffer_length);
-        @memset(buffer, 0);
         @memcpy(buffer[0..builder_length], self.data.items);
         return Buffer{ .data = buffer, .allocator = self.allocator };
     }
@@ -94,7 +92,6 @@ pub const FixedBufferBuilder = struct {
 
     pub fn init(allocator: std.mem.Allocator) !FixedBufferBuilder {
         const data = try allocator.alignedAlloc(u8, simd.ALIGNMENT, max_size);
-        @memset(data, 0);
         return .{ .data = data, .size = 0, .allocator = allocator };
     }
 
@@ -175,7 +172,10 @@ test "Bool Buffer Builder" {
     const buffer = try builder.finishBool();
     defer buffer.deinit();
     try std.testing.expectEqual(simd.ALIGNMENT, buffer.size());
-    try std.testing.expectEqualSlices(u8, &.{0b10100000}, buffer.data[0..1]);
+    const data: u8 = @bitCast(buffer.data[0..1][0..1].*);
+    try std.testing.expect(data & 0b1000_0000 == 0b1000_0000);
+    try std.testing.expect(data & 0b0100_0000 == 0b0000_0000);
+    try std.testing.expect(data & 0b0010_0000 == 0b0010_0000);
 }
 
 test "Bitmap builder" {

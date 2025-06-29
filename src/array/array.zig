@@ -50,31 +50,31 @@ pub const BinaryViewArray = struct {
     datatype: Datatype,
     length: i64,
     null_count: i64,
-    views_buffer: Buffer,
-    buffers: []const Buffer,
+    buffer: Buffer,
+    binary_buffers: []const Buffer,
     bitmap: Bitmap,
     allocator: std.mem.Allocator,
 
     pub fn deinit(self: BinaryViewArray) void {
         self.bitmap.deinit();
-        self.views_buffer.deinit();
-        for (self.buffers) |b| {
+        self.buffer.deinit();
+        for (self.binary_buffers) |b| {
             b.deinit();
         }
-        self.allocator.free(self.buffers);
+        self.allocator.free(self.binary_buffers);
     }
 
     pub fn takeUnsafe(self: BinaryViewArray, i: usize) Scalar {
         const start = i * self.datatype.byte_width();
         var s = Scalar.fromBytes(
             self.datatype,
-            self.views_buffer.data[start .. start + self.datatype.byte_width()],
+            self.buffer.data[start .. start + self.datatype.byte_width()],
         );
         if (s.string.base.value.isLong()) {
             const index = s.string.base.value.long.buf_index;
             const offset = s.string.base.value.long.buf_offset;
             const length = s.string.base.value.long.length;
-            s.string.view = self.buffers[index].data[offset .. offset + length];
+            s.string.view = self.binary_buffers[index].data[offset .. offset + length];
         }
         return s;
     }
@@ -91,6 +91,13 @@ pub const Array = union(enum) {
         switch (self) {
             inline else => |arr| arr.deinit(),
         }
+    }
+
+    pub fn isNumeric(self: Array) bool {
+        return switch (self) {
+            .numeric => true,
+            else => false,
+        };
     }
 
     pub fn isValid(self: Array, i: usize) !bool {
@@ -119,6 +126,18 @@ pub const Array = union(enum) {
     pub fn datatype(self: Array) Datatype {
         return switch (self) {
             inline else => |arr| arr.datatype,
+        };
+    }
+
+    pub fn bitmap(self: Array) Bitmap {
+        return switch (self) {
+            inline else => |arr| arr.bitmap,
+        };
+    }
+
+    pub fn buffer(self: Array) Buffer {
+        return switch (self) {
+            inline else => |arr| arr.buffer,
         };
     }
 

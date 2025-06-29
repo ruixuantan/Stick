@@ -178,8 +178,8 @@ const BinaryViewArrayBuilder = struct {
             .datatype = Datatype.String,
             .length = self.base.length,
             .null_count = self.base.null_count,
-            .views_buffer = finish_view_buffer,
-            .buffers = try self.finished_buffers.toOwnedSlice(),
+            .buffer = finish_view_buffer,
+            .binary_buffers = try self.finished_buffers.toOwnedSlice(),
             .bitmap = finish_bitmap,
             .allocator = self.base.allocator,
         } };

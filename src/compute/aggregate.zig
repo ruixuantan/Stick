@@ -1,17 +1,19 @@
 const std = @import("std");
 const simd = @import("../simd.zig");
 const array = @import("../array/array.zig");
+const Array = array.Array;
 const ArraySliceBuilder = @import("../array/array_builder.zig").ArraySliceBuilder;
 const Datatype = @import("../datatype.zig").Datatype;
-const NumericArray = array.NumericArray;
+const Iterator = @import("../array/iterator.zig").Iterator;
+const Scalar = @import("../scalar.zig").Scalar;
 
 const AggregateOptions = enum { Mul, Min, Max };
 
 pub fn Aggregate(datatype: Datatype) type {
     const T = switch (datatype) {
-        .Double, .Float => f64,
-        .Int8, .Int16, .Int32, .Int64 => i64,
-        .Uint8, .Uint16, .Uint32, .Uint64 => u64,
+        .Double, .Float => .Double,
+        .Int8, .Int16, .Int32, .Int64 => .Int64,
+        .Uint8, .Uint16, .Uint32, .Uint64 => .Uint64,
         else => unreachable,
     };
 
@@ -20,39 +22,29 @@ pub fn Aggregate(datatype: Datatype) type {
     const register_length = simd.SIMD_LENGTH / byte_width;
     const Register = @Vector(register_length, ztype);
     const BitRegister = @Vector(register_length, bool);
-    const chunk_size = simd.ALIGNMENT / 8;
+    const AggregateError = error{ArrayIsNotNumeric};
 
     return struct {
         const Self = @This();
 
-        pub fn cnt(arr: NumericArray) i64 {
-            return arr.length - arr.null_count;
+        pub fn cnt(arr: Array) Scalar {
+            return Scalar.fromInt64(arr.length() - arr.null_count());
         }
 
-        pub fn sum(arr: NumericArray) ?T {
-            if (arr.length == arr.null_count) {
-                return null;
+        inline fn aggregate(arr: Array, id: Register, op: std.builtin.ReduceOp) !Scalar {
+            if (!arr.isNumeric()) {
+                return AggregateError.ArrayIsNotNumeric;
             }
-            var output: Register = @splat(0);
-            var i: usize = 0;
-            while (i < arr.buffer.size()) : (i += simd.SIMD_LENGTH) {
-                const register: simd.SimdRegister = arr.buffer.data[i .. i + simd.SIMD_LENGTH][0..simd.SIMD_LENGTH].*;
-                output += @bitCast(register);
+            if (arr.length() == arr.null_count()) {
+                return Scalar.parse(T, null);
             }
-            return @reduce(.Add, output);
-        }
 
-        inline fn aggregate(arr: NumericArray, id: Register, op: std.builtin.ReduceOp) ?T {
-            if (arr.length == arr.null_count) {
-                return null;
-            }
             var output = id;
-            var i: usize = 0;
+            var itr = Iterator.init(arr);
 
-            while (i < arr.length) : (i += simd.ALIGNMENT) {
-                const validity_chunk: u64 = @bitCast(arr.bitmap.data[i .. i + chunk_size][0..chunk_size].*);
-                const value_chunk = arr.buffer.data[i .. i + simd.ALIGNMENT];
-
+            while (itr.next()) |chunk| {
+                const validity_chunk = chunk.validity;
+                const value_chunk = chunk.values;
                 var j: usize = 0;
                 var bit: u64 = 1;
                 while (j < simd.ALIGNMENT) : (j += simd.SIMD_LENGTH) {
@@ -67,47 +59,55 @@ pub fn Aggregate(datatype: Datatype) type {
                         .Max => @max(output, intermediate),
                         .Min => @min(output, intermediate),
                         .Mul => output * intermediate,
+                        .Add => output + intermediate,
                         else => unreachable,
                     };
                 }
             }
-            return @reduce(op, output);
+            return Scalar.parse(T, @reduce(op, output));
         }
 
-        pub fn mul(arr: NumericArray) ?T {
+        pub fn sum(arr: Array) !Scalar {
+            const id: Register = @splat(0);
+            return try Self.aggregate(arr, id, .Add);
+        }
+
+        pub fn mul(arr: Array) !Scalar {
             const id: Register = @splat(1);
-            return Self.aggregate(arr, id, .Mul);
+            return try Self.aggregate(arr, id, .Mul);
         }
 
-        pub fn max(arr: NumericArray) ?T {
+        pub fn max(arr: Array) !Scalar {
             const id: Register = switch (datatype) {
                 .Double, .Float => @splat(std.math.floatMin(ztype)),
                 .Int8, .Int16, .Int32, .Int64, .Uint8, .Uint16, .Uint32, .Uint64 => @splat(std.math.minInt(ztype)),
                 else => unreachable,
             };
-            return Self.aggregate(arr, id, .Max);
+            return try Self.aggregate(arr, id, .Max);
         }
 
-        pub fn min(arr: NumericArray) ?T {
+        pub fn min(arr: Array) !Scalar {
             const id: Register = switch (datatype) {
                 .Double, .Float => @splat(std.math.floatMax(ztype)),
                 .Int8, .Int16, .Int32, .Int64, .Uint8, .Uint16, .Uint32, .Uint64 => @splat(std.math.maxInt(ztype)),
                 else => unreachable,
             };
-            return Self.aggregate(arr, id, .Min);
+            return try Self.aggregate(arr, id, .Min);
         }
 
-        pub fn avg(arr: NumericArray) ?f64 {
-            const s = sum(arr);
-            if (s == null) {
-                return null;
+        pub fn avg(arr: Array) !Scalar {
+            const s = try sum(arr);
+            if (!s.isValid()) {
+                return Scalar.nullDouble();
             }
-            const total: f64 = @floatFromInt(Self.cnt(arr));
-            switch (datatype) {
-                .Double, .Float => return s.? / total,
-                .Int8, .Int16, .Int32, .Int64, .Uint8, .Uint16, .Uint32, .Uint64 => return @as(f64, @floatFromInt(s.?)) / total,
+            const total: f64 = @floatFromInt(cnt(arr).int64.value);
+            const output = switch (datatype) {
+                .Double, .Float => s.double.value / total,
+                .Int8, .Int16, .Int32, .Int64 => @as(f64, @floatFromInt(s.int64.value)) / total,
+                .Uint8, .Uint16, .Uint32, .Uint64 => @as(f64, @floatFromInt(s.uint64.value)) / total,
                 else => unreachable,
-            }
+            };
+            return Scalar.fromDouble(output);
         }
     };
 }
@@ -120,12 +120,12 @@ test "u8 aggregation" {
     defer arr.deinit();
     const Aggregator = Aggregate(Datatype.Uint8);
 
-    try std.testing.expectEqual(4, Aggregator.cnt(arr.numeric));
-    try std.testing.expectEqual(10, Aggregator.sum(arr.numeric).?);
-    try std.testing.expectApproxEqAbs(2.5, Aggregator.avg(arr.numeric).?, 0.001);
-    try std.testing.expectEqual(24, Aggregator.mul(arr.numeric).?);
-    try std.testing.expectEqual(1, Aggregator.min(arr.numeric).?);
-    try std.testing.expectEqual(4, Aggregator.max(arr.numeric).?);
+    try std.testing.expectEqual(4, Aggregator.cnt(arr).int64.value);
+    try std.testing.expectEqual(10, (try Aggregator.sum(arr)).uint64.value);
+    try std.testing.expectApproxEqAbs(2.5, (try Aggregator.avg(arr)).double.value, 0.001);
+    try std.testing.expectEqual(24, (try Aggregator.mul(arr)).uint64.value);
+    try std.testing.expectEqual(1, (try Aggregator.min(arr)).uint64.value);
+    try std.testing.expectEqual(4, (try Aggregator.max(arr)).uint64.value);
 }
 
 test "f32 aggregation" {
@@ -134,10 +134,10 @@ test "f32 aggregation" {
     defer arr.deinit();
     const Aggregator = Aggregate(Datatype.Float);
 
-    try std.testing.expectEqual(3, Aggregator.cnt(arr.numeric));
-    try std.testing.expectApproxEqAbs(10.01, Aggregator.sum(arr.numeric).?, 0.001);
-    try std.testing.expectApproxEqAbs(3.33667, Aggregator.avg(arr.numeric).?, 0.001);
-    try std.testing.expectApproxEqAbs(-10.01, Aggregator.mul(arr.numeric).?, 0.001);
-    try std.testing.expectApproxEqAbs(-1.0, Aggregator.min(arr.numeric).?, 0.001);
-    try std.testing.expectApproxEqAbs(10.01, Aggregator.max(arr.numeric).?, 0.001);
+    try std.testing.expectEqual(3, Aggregator.cnt(arr).int64.value);
+    try std.testing.expectApproxEqAbs(10.01, (try Aggregator.sum(arr)).double.value, 0.001);
+    try std.testing.expectApproxEqAbs(3.33667, (try Aggregator.avg(arr)).double.value, 0.001);
+    try std.testing.expectApproxEqAbs(-10.01, (try Aggregator.mul(arr)).double.value, 0.001);
+    try std.testing.expectApproxEqAbs(-1.0, (try Aggregator.min(arr)).double.value, 0.001);
+    try std.testing.expectApproxEqAbs(10.01, (try Aggregator.max(arr)).double.value, 0.001);
 }
